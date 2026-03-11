@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." >/dev/null 2>&1 && pwd )"
+SSH_KEY="${1:-~/.ssh/qckchs}"
+
+ansible-playbook -i qckchs.com, $DIR/provisioning/playbook.yml -e "@$DIR/provisioning/vars.yml" -e "ansible_ssh_private_key_file=$SSH_KEY"

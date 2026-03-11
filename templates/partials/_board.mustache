@@ -1,0 +1,9 @@
+<div id="board">
+  {{#squares}}
+    <div class="sq" data-sq="{{index}}" data-piece="{{piece}}" data-targets="{{targets}}">
+      {{#has_piece}}
+        <img src="/static/images/pieces/{{piece}}-{{piece_hash}}.svg" draggable="false">
+      {{/has_piece}}
+    </div>
+  {{/squares}}
+</div>

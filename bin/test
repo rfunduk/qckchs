@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+set -e
+
+FLAGS="
+	-define:ODIN_TEST_THREADS=1 \
+	-define:FACILIO_WRAPPER_LIB=../../build/$TARGET/wrapper.a \
+	-define:MUSTACHE4C_LIB=../../../vendor/mustache4c/libmustache4c.a \
+	-collection:lib=lib \
+	-debug \
+"
+
+odin test tests/ $FLAGS

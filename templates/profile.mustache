@@ -1,0 +1,73 @@
+{{> _header}}
+
+<div class="profile-page">
+  {{#saved}}
+    <div class="notice">Name saved.</div>
+  {{/saved}}
+  {{^claimed}}
+    <div class="notice">Set a name to claim your account.</div>
+  {{/claimed}}
+
+  <form method="post" action="/profile">
+    <input type="hidden" name="next" value="{{next}}">
+    <div class="form-field">
+      <label for="profile-name">Name</label>
+      <div class="name-input">
+        <input id="profile-name" type="text" name="name" value="{{name}}" maxlength="20" placeholder="Your Name" {{^claimed}}autofocus{{/claimed}}>
+        {{^claimed}}
+          <button type="submit" class="button">Save & Continue</button>
+        {{/claimed}}
+        {{#claimed}}
+          <button type="submit" class="button">Save</button>
+        {{/claimed}}
+      </div>
+    </div>
+
+    <div class="form-field" data-signals="{ recovering: false }">
+      <label>Player Key</label>
+      <div class="pk-display" style="display: none;" data-show="!$recovering">
+        <input type="text" value="{{#claimed}}{{pk}}{{/claimed}}{{^claimed}}*************{{/claimed}}" disabled>
+        <button type="button" class="button" data-on:click__prevent="copyToClipboard('{{pk_full}}')">Copy</button>
+        <button type="button" class="button" data-on:click__prevent="$recovering = true">Recover</button>
+      </div>
+      <div class="pk-display" style="display: none;" data-show="$recovering">
+        <input type="text" data-bind:new-pk maxlength="32" placeholder="Key to Recover">
+        <button type="button" class="button" data-on:click__prevent="maybeSetPkAndReload($newPk)">Set Key</button>
+      </div>
+    </div>
+
+    {{#claimed}}
+      <div class="profile-stats"
+           data-signals="{ played: {{played}}, wins: {{wins}}, losses: {{losses}}, draws: {{draws}} }">
+        <div>
+          <label>played</label>
+          <strong data-text="$played"></strong>
+        </div>
+        <div>
+          <label>wins</label>
+          <strong data-text="$wins"></strong>
+        </div>
+        <div>
+          <label>losses</label>
+          <strong data-text="$losses"></strong>
+        </div>
+        <div>
+          <label>draws</label>
+          <strong data-text="$draws"></strong>
+        </div>
+      </div>
+    </form>
+
+    <div style="display:none;" data-init="@post('/stream/p/{{player_code}}', { retry: 'always' })"> </div>
+
+    <div id="profile-games" class="profile-games">
+      {{#games}}
+        {{> _miniboard}}
+      {{/games}}
+    </div>
+  {{/claimed}}
+</div>
+
+<script>
+  history.replaceState(null, null, '/profile')
+</script>

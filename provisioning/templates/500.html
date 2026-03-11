@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>qckchs</title>
+  <style>
+      *, *::before, *::after { margin: 0; padding: 0; box-sizing: content-box; }
+      html { line-height: 1.15; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+      body {
+        font-family: system-ui, -apple-system, sans-serif;
+        background: white;
+        color: black;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+      }
+      h1 {
+        margin: 0;
+        color: black;
+        letter-spacing: -3px;
+        font-size: 2.5rem;
+        -webkit-text-stroke: 1px black;
+        paint-order: stroke fill;
+        position: relative;
+
+        &::after {
+          content: 'qckchs';
+          position: absolute;
+          left: 2px;
+          top: 2px;
+          z-index: -1;
+          background-color: white;
+          background-clip: text;
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          -webkit-text-stroke: 1px black;
+          paint-order: stroke fill;
+        }
+      }
+      p {
+        font-size: 0.85rem;
+        color: #888;
+        margin-top: 0.5rem;
+      }
+      a {
+        font-size: 0.85rem;
+        color: black;
+        margin-top: 1rem;
+      }
+    </style>
+</head>
+
+<body>
+
+  <h1>qckchs</h1>
+  <p>something went wrong</p>
+  <a href="/">back to lobby</a>
+
+</body>
+
+</html>

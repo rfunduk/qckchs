@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+
+set -e
+
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." >/dev/null 2>&1 && pwd )"
+mkdir -p "$DIR/vendor"
+mkdir -p "$DIR/build"
+
+# --- versions ---
+FACILIO_VERSION="0.7.6"
+DATASTAR_VERSION="v1.0.0-RC.8"
+MUSTACHE4C_COMMIT="74911a1ad2b78d1325b14853aa63d566622ca880"
+
+
+echo "========================="
+echo "  facil.io $FACILIO_VERSION"
+echo "========================="
+
+FACILIO_URL="https://github.com/boazsegev/facil.io/archive/refs/tags/${FACILIO_VERSION}.tar.gz"
+FACILIO_DIR="$DIR/vendor/facil.io-${FACILIO_VERSION}"
+
+if [ ! -d "$FACILIO_DIR" ]; then
+	echo "Downloading: $FACILIO_URL"
+	curl -sL "$FACILIO_URL" | tar -xzf - -C "$DIR/vendor/"
+fi
+
+cd "$FACILIO_DIR"
+echo "Generating libdump..."
+make libdump --quiet
+echo "Building static library..."
+cd "$FACILIO_DIR/libdump"
+cc -c src/*.c -I include/
+ar rcs "$FACILIO_DIR/libfacil.a" *.o
+rm -f *.o
+echo "Done."
+
+
+echo ""
+echo "========================="
+echo "  mustache4c"
+echo "========================="
+
+MUSTACHE4C_DIR="$DIR/vendor/mustache4c"
+
+echo "Downloading mustache4c at ${MUSTACHE4C_COMMIT}..."
+curl -sL "https://github.com/mity/mustache4c/archive/${MUSTACHE4C_COMMIT}.tar.gz" -o "/tmp/mustache4c.tar.gz"
+mkdir -p "$MUSTACHE4C_DIR"
+tar -xzf "/tmp/mustache4c.tar.gz" --strip-components=2 -C "$MUSTACHE4C_DIR" "mustache4c-${MUSTACHE4C_COMMIT}/src/"
+rm -f "/tmp/mustache4c.tar.gz"
+cd "$MUSTACHE4C_DIR"
+echo "Building..."
+cc -c mustache.c -o mustache.o
+ar rcs libmustache4c.a mustache.o
+rm -f mustache.o
+echo "Done."
+
+
+echo ""
+echo "========================="
+echo "  datastar $DATASTAR_VERSION"
+echo "========================="
+
+DATASTAR_DIR="$DIR/vendor/datastar"
+DATASTAR_TARBALL="https://github.com/starfederation/datastar/archive/refs/tags/${DATASTAR_VERSION}.tar.gz"
+
+if [ -f "$DATASTAR_DIR/datastar.js" ]; then
+	echo "Already downloaded at $DATASTAR_DIR"
+else
+	echo "Downloading: $DATASTAR_TARBALL"
+	mkdir -p "$DATASTAR_DIR"
+	curl -sL "$DATASTAR_TARBALL" \
+		| tar -xzf - --strip-components=2 -C "$DATASTAR_DIR" \
+		"datastar-${DATASTAR_VERSION#v}/bundles/"
+	echo "Done."
+fi
+
+
+echo ""
+echo "========================="
+echo "  modern-normalize"
+echo "========================="
+
+NORMALIZE_FILE="$DIR/vendor/modern-normalize.min.css"
+
+if [ -f "$NORMALIZE_FILE" ]; then
+	echo "Already downloaded at $NORMALIZE_FILE"
+else
+	NORMALIZE_URL="https://cdn.jsdelivr.net/npm/modern-normalize/modern-normalize.min.css"
+	echo "Downloading: $NORMALIZE_URL"
+	curl -sL "$NORMALIZE_URL" -o "$NORMALIZE_FILE"
+	echo "Done."
+fi

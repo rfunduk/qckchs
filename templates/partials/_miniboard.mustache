@@ -1,0 +1,13 @@
+<a id="lobby-{{code}}" href="/games/{{code}}" class="mini-game">
+  <div class="mini-bar"><span>{{bn}}</span>{{#b_win}}<span>&#x2714;</span>{{/b_win}}</div>
+  <div class="mini-board">
+    {{#squares}}
+      <div class="sq">
+        {{#has_piece}}
+          <img src="/static/images/pieces/{{piece}}-{{piece_hash}}.svg" draggable="false">
+        {{/has_piece}}
+      </div>
+    {{/squares}}
+  </div>
+  <div class="mini-bar"><span>{{wn}}</span>{{#w_win}}<span>&#x2714;</span>{{/w_win}}</div>
+</a>

@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -e
+
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." >/dev/null 2>&1 && pwd )"
+cd "$DIR"
+
+mkdir -p $DIR/build/debug
+
+# Generate mimir.json with random bot PKs if it doesn't exist
+if [ ! -f "$DIR/build/debug/mimir.json" ]; then
+  rand_pk() { LC_ALL=C tr -dc 'a-z0-9' < /dev/urandom | head -c 32; }
+  cat > "$DIR/build/debug/mimir.json" <<EOF
+{"easy":"$(rand_pk)","medium":"$(rand_pk)","hard":"$(rand_pk)"}
+EOF
+  echo "Generated mimir.json with random dev bot keys"
+fi
+
+trap exit INT
+
+while find src lib static templates -type f -not -name '*_generated*' | \
+      entr -dr sh -c "$DIR/bin/build && cd $DIR/build/debug && ./qckchs"; do
+  echo "Restarting..."
+done

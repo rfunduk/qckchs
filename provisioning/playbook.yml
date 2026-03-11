@@ -1,0 +1,373 @@
+---
+- name: QCKCHS DEPLOY
+  hosts: qckchs.com
+  vars:
+    ansible_user: root
+    ansible_ssh_common_args: '-o ControlMaster=auto -o ControlPath=/tmp/ansible-%r@%h:%p -o ControlPersist=10m'
+    dokku_root: /var/lib/dokku
+  vars_files:
+    - vars.yml
+  tasks:
+
+    # -------------------------------------------------------------------------
+    # Base system
+    # -------------------------------------------------------------------------
+
+    - name: Update apt cache and upgrade packages
+      apt:
+        update_cache: yes
+        upgrade: dist
+        cache_valid_time: 3600
+
+    - name: Install base packages
+      apt:
+        name:
+          - curl
+          - wget
+          - git
+          - ufw
+          - fail2ban
+          - unattended-upgrades
+          - apt-transport-https
+          - ca-certificates
+          - gnupg
+        state: present
+
+    - name: Enable unattended security upgrades
+      copy:
+        dest: /etc/apt/apt.conf.d/20auto-upgrades
+        content: |
+          APT::Periodic::Update-Package-Lists "1";
+          APT::Periodic::Unattended-Upgrade "1";
+
+    # -------------------------------------------------------------------------
+    # SSH hardening
+    # -------------------------------------------------------------------------
+
+    - name: Harden sshd config
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+        state: present
+      loop:
+        - { regexp: '^#?PermitRootLogin', line: 'PermitRootLogin prohibit-password' }
+        - { regexp: '^#?PasswordAuthentication', line: 'PasswordAuthentication no' }
+        - { regexp: '^#?X11Forwarding', line: 'X11Forwarding no' }
+        - { regexp: '^#?MaxAuthTries', line: 'MaxAuthTries 3' }
+        - { regexp: '^#?AllowAgentForwarding', line: 'AllowAgentForwarding no' }
+        - { regexp: '^#?PrintMotd', line: 'PrintMotd no' }
+      notify: Restart sshd
+
+    - name: Set authorised SSH keys for root
+      authorized_key:
+        user: root
+        state: present
+        exclusive: yes
+        key: "{{ authorized_keys | join('\n') }}"
+
+    # -------------------------------------------------------------------------
+    # Firewall (UFW)
+    # -------------------------------------------------------------------------
+
+    - name: Allow configured ports through UFW
+      ufw:
+        rule: allow
+        port: "{{ item }}"
+        proto: tcp
+      loop: "{{ firewall_allowed_ports }}"
+
+    - name: Enable UFW with default deny incoming
+      ufw:
+        state: enabled
+        default: deny
+        direction: incoming
+
+    - name: Enable fail2ban
+      service:
+        name: fail2ban
+        state: started
+        enabled: yes
+
+    # -------------------------------------------------------------------------
+    # Docker
+    # -------------------------------------------------------------------------
+
+    - name: Create apt keyrings directory
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: "0755"
+
+    - name: Add Docker GPG key
+      get_url:
+        url: https://download.docker.com/linux/debian/gpg
+        dest: /etc/apt/keyrings/docker.asc
+        mode: "0644"
+
+    - name: Add Docker apt repository
+      apt_repository:
+        repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian bookworm stable"
+        state: present
+        update_cache: yes
+
+    - name: Install Docker
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+        state: present
+
+    - name: Start and enable Docker
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    # -------------------------------------------------------------------------
+    # Dokku
+    # -------------------------------------------------------------------------
+
+    - name: Add Dokku GPG key
+      get_url:
+        url: https://packagecloud.io/dokku/dokku/gpgkey
+        dest: /etc/apt/keyrings/dokku.asc
+        mode: "0644"
+
+    - name: Add Dokku apt repository
+      apt_repository:
+        repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/dokku.asc] https://packagecloud.io/dokku/dokku/debian/ bookworm main"
+        state: present
+        update_cache: yes
+
+    - name: Pre-configure Dokku debconf (skip web installer)
+      debconf:
+        name: dokku
+        question: "{{ item.question }}"
+        value: "{{ item.value }}"
+        vtype: "{{ item.vtype }}"
+      loop:
+        - { question: 'dokku/web_config', value: 'false', vtype: 'boolean' }
+        - { question: 'dokku/vhost_enable', value: 'false', vtype: 'boolean' }
+        - { question: 'dokku/hostname', value: '{{ domain }}', vtype: 'string' }
+        - { question: 'dokku/skip_key_file', value: 'true', vtype: 'boolean' }
+
+    - name: Install Dokku
+      apt:
+        name: dokku
+        state: present
+
+    - name: Create Dokku app
+      command: dokku apps:create {{ app_name }}
+      args:
+        creates: /home/dokku/{{ app_name }}
+
+    - name: Set domain on app
+      command: dokku domains:set {{ app_name }} {{ domain }}
+
+    - name: Disable zero-downtime checks
+      command: dokku checks:disable {{ app_name }}
+
+    - name: Create persistent storage directory on host
+      file:
+        path: "{{ storage_host_path }}"
+        state: directory
+        owner: "32767"   # dokku container user
+        group: "32767"
+        mode: "0755"
+
+    - name: Create static assets directory on host
+      file:
+        path: "{{ storage_host_path }}/static"
+        state: directory
+        owner: "32767"
+        group: "32767"
+        mode: "0755"
+
+    - name: Mount persistent storage into app container
+      command: >
+        dokku storage:mount {{ app_name }}
+          {{ storage_host_path }}:{{ storage_container_path }}
+      register: storage_mount
+      changed_when: "'already' not in storage_mount.stderr"
+      failed_when: storage_mount.rc != 0 and 'already' not in storage_mount.stderr
+
+    - name: Set DB_PATH for persistent storage
+      command: dokku config:set --no-restart {{ app_name }} DB_PATH={{ sqlite_db_path }}
+
+    - name: Write mimir.json with bot player keys
+      copy:
+        dest: "{{ storage_host_path }}/mimir.json"
+        owner: "32767"
+        group: "32767"
+        mode: "0600"
+        content: |
+          {"easy":"{{ bots.easy }}","medium":"{{ bots.medium }}","hard":"{{ bots.hard }}"}
+
+    - name: Set MIMIR_PATH for bot config
+      command: dokku config:set --no-restart {{ app_name }} MIMIR_PATH={{ mimir_path }}
+
+    # -------------------------------------------------------------------------
+    # Maintenance page & nginx config
+    # -------------------------------------------------------------------------
+
+    - name: Copy maintenance page to storage
+      copy:
+        src: templates/maintenance.html
+        dest: "{{ storage_host_path }}/maintenance.html"
+        mode: "0644"
+
+    - name: Copy error pages to storage
+      copy:
+        src: "templates/{{ item }}"
+        dest: "{{ storage_host_path }}/{{ item }}"
+        mode: "0644"
+      loop:
+        - 404.html
+        - 500.html
+
+    - name: Create nginx.conf.d directory for app
+      file:
+        path: "{{ dokku_root }}/{{ app_name }}/nginx.conf.d"
+        state: directory
+        mode: "0755"
+
+    - name: Deploy static assets nginx config
+      template:
+        src: templates/static.conf
+        dest: "{{ dokku_root }}/{{ app_name }}/nginx.conf.d/static.conf"
+        mode: "0644"
+      notify: Rebuild nginx config
+
+    - name: Deploy maintenance page nginx config
+      template:
+        src: templates/maintenance.conf
+        dest: "{{ dokku_root }}/{{ app_name }}/nginx.conf.d/maintenance.conf"
+        mode: "0644"
+      notify: Rebuild nginx config
+
+    - name: Deploy error pages nginx config
+      template:
+        src: templates/errors.conf
+        dest: "{{ dokku_root }}/{{ app_name }}/nginx.conf.d/errors.conf"
+        mode: "0644"
+      notify: Rebuild nginx config
+
+    # -------------------------------------------------------------------------
+    # Dokku static assets plugin
+    # -------------------------------------------------------------------------
+
+    - name: Create Dokku plugin directory
+      file:
+        path: "{{ dokku_root }}/plugins/available/qckchs-static/triggers"
+        state: directory
+        mode: "0755"
+
+    - name: Deploy plugin.toml
+      copy:
+        src: dokku-plugin/plugin.toml
+        dest: "{{ dokku_root }}/plugins/available/qckchs-static/plugin.toml"
+        mode: "0644"
+
+    - name: Deploy post-deploy trigger
+      copy:
+        src: dokku-plugin/triggers/post-deploy
+        dest: "{{ dokku_root }}/plugins/available/qckchs-static/triggers/post-deploy"
+        mode: "0755"
+
+    - name: Enable qckchs-static plugin
+      file:
+        src: "{{ dokku_root }}/plugins/available/qckchs-static"
+        dest: "{{ dokku_root }}/plugins/enabled/qckchs-static"
+        state: link
+
+    # -------------------------------------------------------------------------
+    # Let's Encrypt
+    # -------------------------------------------------------------------------
+
+    - name: Install Dokku Let's Encrypt plugin
+      command: dokku plugin:install https://github.com/dokku/dokku-letsencrypt.git
+      args:
+        creates: /var/lib/dokku/plugins/available/letsencrypt
+
+    - name: Set Let's Encrypt email globally
+      command: dokku letsencrypt:set --global email {{ letsencrypt_email }}
+      register: le_email
+      changed_when: le_email.rc == 0
+
+    - name: Check if Let's Encrypt is already active
+      command: dokku letsencrypt:active {{ app_name }}
+      register: le_active
+      changed_when: false
+
+    - name: Enable Let's Encrypt for app
+      command: dokku letsencrypt:enable {{ app_name }}
+      when: le_active.stdout != "true"
+
+    - name: Enable auto-renew cron
+      command: dokku letsencrypt:cron-job --add
+      args:
+        creates: /etc/cron.d/dokku-letsencrypt
+
+    # -------------------------------------------------------------------------
+    # Litestream
+    # -------------------------------------------------------------------------
+
+    # - name: Download Litestream deb package
+    #   get_url:
+    #     url: "https://github.com/benbjohnson/litestream/releases/download/v{{ litestream_version }}/litestream-v{{ litestream_version }}-linux-amd64.deb"
+    #     dest: "/tmp/litestream.deb"
+
+    # - name: Install Litestream
+    #   apt:
+    #     deb: /tmp/litestream.deb
+    #     state: present
+
+    # - name: Write Litestream config
+    #   copy:
+    #     dest: /etc/litestream.yml
+    #     mode: "0600"
+    #     content: |
+    #       dbs:
+    #         - path: {{ storage_host_path }}/data.db
+    #           replicas:
+    #             - url: {{ litestream_replica_url }}
+    #               access-key-id: {{ litestream_access_key_id }}
+    #               secret-access-key: {{ litestream_secret_access_key }}
+    #   notify: Restart litestream
+
+    # - name: Enable and start Litestream service
+    #   service:
+    #     name: litestream
+    #     state: started
+    #     enabled: yes
+
+    # -------------------------------------------------------------------------
+    # Dokku SSH key
+    # -------------------------------------------------------------------------
+
+    - name: Add SSH key to Dokku for git push
+      shell: |
+        echo "{{ authorized_keys[0] }}" | dokku ssh-keys:add deployer
+      register: ssh_key_add
+      changed_when: "'Added' in ssh_key_add.stdout"
+      failed_when: ssh_key_add.rc != 0 and 'already' not in ssh_key_add.stderr and 'Duplicate' not in ssh_key_add.stderr
+
+  # ---------------------------------------------------------------------------
+  # Handlers
+  # ---------------------------------------------------------------------------
+
+  handlers:
+    - name: Restart sshd
+      service:
+        name: sshd
+        state: restarted
+
+    - name: Rebuild nginx config
+      command: dokku proxy:build-config {{ app_name }}
+
+    # - name: Restart litestream
+    #   service:
+    #     name: litestream
+    #     state: restarted

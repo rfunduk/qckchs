@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+DB="build/debug/qckchs.db"
+
+if [ $# -eq 0 ]; then
+  echo "Usage: bin/cleanup <player_key> [player_key ...]"
+  echo "Deletes all games involving the specified player keys."
+  exit 1
+fi
+
+if [ ! -f "$DB" ]; then
+  echo "Database not found: $DB"
+  exit 1
+fi
+
+for key in "$@"; do
+  player_id=$(sqlite3 "$DB" "SELECT id FROM players WHERE key = CAST('$key' AS BLOB);")
+  if [ -z "$player_id" ]; then
+    echo "Player not found: $key"
+    continue
+  fi
+
+  count=$(sqlite3 "$DB" "SELECT COUNT(*) FROM games WHERE white_id = $player_id OR black_id = $player_id;")
+  echo "Player $key (id=$player_id): $count games"
+
+  if [ "$count" -gt 0 ]; then
+    sqlite3 "$DB" "DELETE FROM games WHERE white_id = $player_id OR black_id = $player_id;"
+    echo "  Deleted $count games."
+  fi
+done

@@ -1,0 +1,24 @@
+{{> _header}}
+
+<div class="new-game-options">
+  <div class="buttons">
+    <form method="post" action="/new-game">
+      <button class="button" type="submit">vs Human</button>
+    </form>
+    <form method="post" action="/new-game/easy">
+      <button class="button" type="submit">vs Easy</button>
+    </form>
+    <form method="post" action="/new-game/medium">
+      <button class="button" type="submit">vs Medium</button>
+    </form>
+    <form method="post" action="/new-game/hard">
+      <button class="button" type="submit">vs Hard</button>
+    </form>
+  </div>
+</div>
+
+<div id="lobby" data-init="@post('/stream/', { retry: 'always' })">
+  {{#games}}
+    {{> _miniboard}}
+  {{/games}}
+</div>

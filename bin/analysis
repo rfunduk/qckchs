@@ -1,0 +1,258 @@
+#!/usr/bin/env python3
+"""Analyze qckchs game results between bots identified by key prefix.
+
+Usage: bin/analysis [--db path] prefix1 prefix2 ...
+Example: bin/analysis random minimax4 minimax8
+"""
+
+import argparse
+import sqlite3
+from collections import defaultdict
+from itertools import combinations
+
+# Game_Result enum (matches global.odin)
+STALEMATE = 1
+WHITE_CAPTURE = 2
+BLACK_CAPTURE = 3
+WHITE_RESIGN = 4
+BLACK_RESIGN = 5
+WHITE_TIMEOUT = 6  # white wins — black flagged
+BLACK_TIMEOUT = 7  # black wins — white flagged
+DRAW_REPETITION = 8
+DRAW_FIFTY_MOVES = 9
+
+WHITE_WINS = {WHITE_CAPTURE, WHITE_RESIGN, WHITE_TIMEOUT}
+BLACK_WINS = {BLACK_CAPTURE, BLACK_RESIGN, BLACK_TIMEOUT}
+DRAWS = {STALEMATE, DRAW_REPETITION, DRAW_FIFTY_MOVES}
+
+RESULT_NAMES = {
+    STALEMATE: "stalemate",
+    WHITE_CAPTURE: "capture", BLACK_CAPTURE: "capture",
+    WHITE_RESIGN: "resign", BLACK_RESIGN: "resign",
+    WHITE_TIMEOUT: "timeout", BLACK_TIMEOUT: "timeout",
+    DRAW_REPETITION: "repetition",
+    DRAW_FIFTY_MOVES: "fifty_moves",
+}
+
+DRAW_NAMES = {
+    STALEMATE: "stalemate",
+    DRAW_REPETITION: "repetition",
+    DRAW_FIFTY_MOVES: "50 moves",
+}
+
+
+def pct(n, total):
+    return 100 * n / total if total else 0.0
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Analyze qckchs bot matchups")
+    parser.add_argument("--db", default="build/debug/qckchs.db")
+    parser.add_argument("prefixes", nargs="+", help="Bot key prefixes")
+    args = parser.parse_args()
+
+    conn = sqlite3.connect(args.db)
+
+    # --- Map prefixes to player IDs ---
+    players = conn.execute("SELECT id, key FROM players").fetchall()
+    bot_ids = {}  # prefix -> set of player IDs
+    for prefix in args.prefixes:
+        ids = set()
+        for pid, key in players:
+            try:
+                name = key.decode("ascii")
+            except (UnicodeDecodeError, AttributeError):
+                continue
+            if name.startswith(prefix):
+                ids.add(pid)
+        if not ids:
+            print(f"warning: no players match prefix '{prefix}'")
+        bot_ids[prefix] = ids
+
+    # Build reverse map: player ID -> prefix (longest prefix wins)
+    _pid_to_bot = {}
+    for prefix in sorted(bot_ids, key=len, reverse=True):
+        for pid in bot_ids[prefix]:
+            if pid not in _pid_to_bot:
+                _pid_to_bot[pid] = prefix
+
+    def bot_for(pid):
+        return _pid_to_bot.get(pid)
+
+    # --- Load all finished games ---
+    games = conn.execute("""
+        SELECT white_id, black_id, result, LENGTH(moves) / 4
+        FROM games WHERE result > 0
+    """).fetchall()
+
+    # --- Accumulate per-bot stats ---
+    stats = {p: defaultdict(int) for p in args.prefixes}
+    move_counts = {p: [] for p in args.prefixes}
+
+    # --- Head-to-head ---
+    h2h = {}
+    for a, b in combinations(args.prefixes, 2):
+        h2h[(a, b)] = defaultdict(int)
+    # Also track self-play
+    for p in args.prefixes:
+        h2h[(p, p)] = defaultdict(int)
+
+    for white_id, black_id, result, n_moves in games:
+        white_bot = bot_for(white_id)
+        black_bot = bot_for(black_id)
+        if white_bot is None or black_bot is None:
+            continue
+
+        for bot, color in [(white_bot, "white"), (black_bot, "black")]:
+            stats[bot]["games"] += 1
+            stats[bot][f"games_as_{color}"] += 1
+            move_counts[bot].append(n_moves)
+
+        if result in WHITE_WINS:
+            stats[white_bot]["wins"] += 1
+            stats[white_bot]["wins_as_white"] += 1
+            stats[black_bot]["losses"] += 1
+            if result == WHITE_TIMEOUT:
+                stats[black_bot]["flagged"] += 1
+            stats[white_bot]["wins_by_" + RESULT_NAMES[result]] += 1
+        elif result in BLACK_WINS:
+            stats[black_bot]["wins"] += 1
+            stats[black_bot]["wins_as_black"] += 1
+            stats[white_bot]["losses"] += 1
+            if result == BLACK_TIMEOUT:
+                stats[white_bot]["flagged"] += 1
+            stats[black_bot]["wins_by_" + RESULT_NAMES[result]] += 1
+        else:
+            stats[white_bot]["draws"] += 1
+            stats[black_bot]["draws"] += 1
+            reason = DRAW_NAMES.get(result, "other")
+            stats[white_bot][f"draws_by_{reason}"] += 1
+            stats[black_bot][f"draws_by_{reason}"] += 1
+
+        # Head-to-head (normalize pair order)
+        if white_bot == black_bot:
+            pair = (white_bot, black_bot)
+            a_is_white = True
+        elif (white_bot, black_bot) in h2h:
+            pair = (white_bot, black_bot)
+            a_is_white = True
+        elif (black_bot, white_bot) in h2h:
+            pair = (black_bot, white_bot)
+            a_is_white = False
+        else:
+            continue
+
+        h2h[pair]["games"] += 1
+        if result in WHITE_WINS:
+            key = "a" if a_is_white else "b"
+            h2h[pair][f"{key}_wins"] += 1
+            h2h[pair][f"{key}_wins_white"] += 1
+            if result == WHITE_TIMEOUT:
+                opp = "b" if a_is_white else "a"
+                h2h[pair][f"{opp}_flagged"] += 1
+        elif result in BLACK_WINS:
+            key = "b" if a_is_white else "a"
+            h2h[pair][f"{key}_wins"] += 1
+            h2h[pair][f"{key}_wins_black"] += 1
+            if result == BLACK_TIMEOUT:
+                opp = "a" if a_is_white else "b"
+                h2h[pair][f"{opp}_flagged"] += 1
+        else:
+            h2h[pair]["draws"] += 1
+
+    # --- Print ---
+
+    print("=== Bot Summary ===")
+    print(f"{'Bot':<16} {'Games':>6} {'W':>5} {'L':>5} {'D':>4}"
+          f" {'Win%':>7} {'Flag%':>7} {'AvgLen':>7}")
+    print("-" * 66)
+    for bot in args.prefixes:
+        s = stats[bot]
+        g = s["games"]
+        if g == 0:
+            print(f"{bot:<16}      -")
+            continue
+        avg_len = sum(move_counts[bot]) / len(move_counts[bot])
+        print(f"{bot:<16} {g:>6} {s['wins']:>5} {s['losses']:>5} {s['draws']:>4}"
+              f" {pct(s['wins'], g):>6.1f}% {pct(s['flagged'], g):>6.1f}% {avg_len:>6.1f}")
+
+    print()
+    print("=== Win Method ===")
+    print(f"{'Bot':<16} {'Capture':>10} {'Timeout':>10} {'Resign':>10}")
+    print("-" * 50)
+    for bot in args.prefixes:
+        s = stats[bot]
+        w = s["wins"]
+        if w == 0:
+            print(f"{bot:<16}          -")
+            continue
+        cap = s["wins_by_capture"]
+        tim = s["wins_by_timeout"]
+        res = s["wins_by_resign"]
+        print(f"{bot:<16} {cap:>4} ({pct(cap, w):>4.0f}%) {tim:>4} ({pct(tim, w):>4.0f}%)"
+              f" {res:>4} ({pct(res, w):>4.0f}%)")
+
+    print()
+    print("=== Draw Reason ===")
+    print(f"{'Bot':<16} {'Stalemate':>12} {'Repetition':>12} {'50 Moves':>12}")
+    print("-" * 56)
+    for bot in args.prefixes:
+        s = stats[bot]
+        d = s["draws"]
+        if d == 0:
+            print(f"{bot:<16}            -")
+            continue
+        stale = s["draws_by_stalemate"]
+        rep = s["draws_by_repetition"]
+        fifty = s["draws_by_50 moves"]
+        print(f"{bot:<16} {stale:>4} ({pct(stale, d):>4.0f}%)"
+              f" {rep:>4} ({pct(rep, d):>4.0f}%)"
+              f" {fifty:>4} ({pct(fifty, d):>4.0f}%)")
+
+    print()
+    print("=== Color Advantage ===")
+    print(f"{'Bot':<16} {'As White':>12} {'As Black':>12} {'Adv':>8}")
+    print("-" * 52)
+    for bot in args.prefixes:
+        s = stats[bot]
+        wg = s["games_as_white"]
+        bg = s["games_as_black"]
+        if wg == 0 or bg == 0:
+            continue
+        w_pct = pct(s["wins_as_white"], wg)
+        b_pct = pct(s["wins_as_black"], bg)
+        adv = w_pct - b_pct
+        print(f"{bot:<16} {w_pct:>5.1f}% ({wg:>3}) {b_pct:>5.1f}% ({bg:>3}) {adv:>+7.1f}%")
+
+    # Filter to non-empty matchups
+    matchups = {k: v for k, v in h2h.items() if v["games"] > 0}
+
+    if matchups:
+        print()
+        print("=== Head-to-Head ===")
+        for (a, b), s in sorted(matchups.items()):
+            g = s["games"]
+            if a == b:
+                print(f"\n{a} self-play: {g} games")
+            else:
+                print(f"\n{a} vs {b}: {g} games")
+                a_w = s["a_wins"]
+                b_w = s["b_wins"]
+                d = s["draws"]
+                a_flag = s["a_flagged"]
+                b_flag = s["b_flagged"]
+
+                print(f"  {a:<14} {a_w:>3} wins ({pct(a_w, g):>5.1f}%)"
+                      f"  | as W: {s['a_wins_white']:>3}  as B: {s['a_wins_black']:>3}"
+                      f"  | flagged {a_flag}x ({pct(a_flag, g):>4.1f}%)")
+                print(f"  {b:<14} {b_w:>3} wins ({pct(b_w, g):>5.1f}%)"
+                      f"  | as W: {s['b_wins_white']:>3}  as B: {s['b_wins_black']:>3}"
+                      f"  | flagged {b_flag}x ({pct(b_flag, g):>4.1f}%)")
+                if d:
+                    print(f"  {'draws':<14} {d:>3}       ({pct(d, g):>5.1f}%)")
+
+    conn.close()
+
+
+if __name__ == "__main__":
+    main()

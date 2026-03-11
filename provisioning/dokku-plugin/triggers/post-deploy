@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -eo pipefail
+[[ $DOKKU_TRACE ]] && set -x
+
+APP="$1"
+[[ "$APP" != "qckchs" ]] && exit 0
+
+STATIC_DIR="/var/lib/dokku/data/storage/$APP/static"
+mkdir -p "$STATIC_DIR"
+
+# Extract hashed static files from running container
+CONTAINER=$(docker ps -q -f "label=com.dokku.app-name=$APP" | head -1)
+docker cp "$CONTAINER:/app/static/." "$STATIC_DIR/"
+
+# Cleanup stale assets from old builds
+find "$STATIC_DIR" -type f -mtime +7 -delete
+find "$STATIC_DIR" -type d -empty -delete
+
+echo "-----> Static assets synced for $APP"

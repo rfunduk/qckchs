@@ -92,22 +92,24 @@ function animateBoardChange() {
   }, { once: true })
 }
 
-// Datastar morphs #board children in-place, so observe the board node directly.
-// Morph generates many mutation records at once; debounce via microtask.
+// Observe the board's parent so we survive outer-mode morphs that replace #board.
+// Debounce via microtask so multiple mutation records from a single morph
+// trigger only one animation.
 function initBoardObserver() {
   const board = document.getElementById('board')
-  if (!board) { return }
+  if (!board || !board.parentNode) { return }
 
   pieceSnapshot = snapshotPieces()
 
   new MutationObserver(() => {
+    if (!document.getElementById('board')) { return }
     if (animPending) { return }
     animPending = true
     queueMicrotask(() => {
       animPending = false
       animateBoardChange()
     })
-  }).observe(board, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-piece'] })
+  }).observe(board.parentNode, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-piece'] })
 }
 
 initBoardObserver()
@@ -145,8 +147,7 @@ document.addEventListener('pointerdown', (e) => {
   clone.classList.add('drag-clone')
   clone.style.width = rect.width + 'px'
   clone.style.height = rect.height + 'px'
-  clone.style.left = (e.clientX - offsetX) + 'px'
-  clone.style.top = (e.clientY - offsetY) + 'px'
+  clone.style.transform = `translate(${e.clientX - offsetX}px, ${e.clientY - offsetY}px)`
   document.body.appendChild(clone)
 
   sq.classList.add('dragging')
@@ -154,8 +155,7 @@ document.addEventListener('pointerdown', (e) => {
 
 document.addEventListener('pointermove', (e) => {
   if (!clone) { return }
-  clone.style.left = (e.clientX - offsetX) + 'px'
-  clone.style.top = (e.clientY - offsetY) + 'px'
+  clone.style.transform = `translate(${e.clientX - offsetX}px, ${e.clientY - offsetY}px)`
 
   const el = document.elementFromPoint(e.clientX, e.clientY)
   const sq = el?.closest('#board [data-sq]')

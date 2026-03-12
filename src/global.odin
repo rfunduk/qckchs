@@ -9,18 +9,21 @@ import "mimir"
 GAME_ID_OFFSET :: 10000
 PLAYER_ID_OFFSET :: 20000
 PERIOD_SECONDS :: 1
-INITIAL_PERIODS :: 120
+INITIAL_PERIODS :: 90
 ABANDON_TIMEOUT :: i64(time.Minute * 10)
 BOT_ABANDON_TIMEOUT :: i64(time.Second * 30)
+PRESENCE_THRESHOLD :: i64(time.Second * 10)
 
 Engine_Memory :: struct {
-	last_id: Game_Id,
-	games:   map[Game_Id]Game,
+	last_id:         Game_Id,
+	games:           map[Game_Id]Game,
+	claimed_players: map[Player_Key]string,
 }
 
 engine_init :: proc() {
 	g = new(Engine_Memory)
 	g.games = make(map[Game_Id]Game, 100)
+	g.claimed_players = make(map[Player_Key]string)
 	g.last_id = 0
 	chess.init()
 	mimir.init()
@@ -36,6 +39,7 @@ State :: enum {
 
 Tick_Result :: enum {
 	No_Change,
+	Started,
 	Timed_Out,
 	Abandoned,
 	Cleanup,
@@ -86,4 +90,6 @@ Game :: struct {
 	no_progress_count: u8,
 	difficulty:        Difficulty,
 	bot:               ^Bot_Handle,
+	white_last_seen:   i64,
+	black_last_seen:   i64,
 }

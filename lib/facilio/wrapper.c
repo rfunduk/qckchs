@@ -93,6 +93,11 @@ static void on_request(http_s *h) {
 
     if (try_sse_upgrade(h, path)) { return; }
 
+    fio_str_info_s method = fiobj_obj2cstr(h->method);
+    if (method.len == 4 && memcmp(method.data, "POST", 4) == 0) {
+        http_parse_body(h);
+    }
+
     if (request_handler) {
         request_handler(h);
         return;
@@ -146,9 +151,12 @@ void fiow_respond(http_s *h, int status, const char *content_type,
     http_send_body(h, (void *)body, body_len);
 }
 
+void fiow_parse_body(http_s *h) {
+    http_parse_body(h);
+}
+
 const char *fiow_get_form_param(http_s *h, const char *name,
                                 unsigned int name_len, unsigned int *out_len) {
-    http_parse_body(h);
     if (!h->params || h->params == FIOBJ_INVALID) { *out_len = 0; return NULL; }
     FIOBJ key = fiobj_str_new(name, name_len);
     FIOBJ val = fiobj_hash_get(h->params, key);

@@ -161,6 +161,10 @@ db_shutdown :: proc() {
 		}
 		chan.destroy(db_chan)
 	}
+	for _, name in g.claimed_players {
+		delete(name, runtime.default_allocator())
+	}
+	delete(g.claimed_players)
 	if db_read != nil { sqlite.close(db_read) }
 	if db_conn != nil { sqlite.close(db_conn) }
 }
@@ -238,6 +242,9 @@ db_process_op :: proc(op: DB_Op) {
 
 db_claim_player :: proc(key: Player_Key, name: string) {
 	if key == EMPTY_KEY { return }
+	old_cached, had_cached := g.claimed_players[key]
+	if had_cached { delete(old_cached, runtime.default_allocator()) }
+	g.claimed_players[key] = strings.clone(name, runtime.default_allocator())
 	if db_chan.impl == nil { return }
 	chan.send(
 		db_chan,
@@ -261,8 +268,17 @@ db_get_player_name :: proc(key: Player_Key) -> string {
 		name: string,
 	}
 	row, ok := sqlite.sql_one(db_read, "SELECT name FROM players WHERE key = ?", Name_Row, key)
-	if !ok { return "" }
-	return row.name
+	if ok && len(row.name) > 0 {
+		cached, had_cached := g.claimed_players[key]
+		if had_cached {
+			delete(cached, runtime.default_allocator())
+			delete_key(&g.claimed_players, key)
+		}
+		return row.name
+	}
+	cached, has_cached := g.claimed_players[key]
+	if has_cached { return cached }
+	return ""
 }
 
 db_is_player_claimed :: proc(key: Player_Key) -> bool {
@@ -271,8 +287,15 @@ db_is_player_claimed :: proc(key: Player_Key) -> bool {
 		claimed: i64,
 	}
 	row, ok := sqlite.sql_one(db_read, "SELECT claimed FROM players WHERE key = ?", Claimed_Row, key)
-	if !ok { return false }
-	return row.claimed != 0
+	if ok && row.claimed != 0 {
+		cached, had_cached := g.claimed_players[key]
+		if had_cached {
+			delete(cached, runtime.default_allocator())
+			delete_key(&g.claimed_players, key)
+		}
+		return true
+	}
+	return key in g.claimed_players
 }
 
 Player_Stats :: struct {
@@ -432,17 +455,17 @@ db_get_player_games :: proc(key: Player_Key) -> []Mini_Game_Data {
 		result := Game_Result(sqlite.column_int64(query, 4))
 		wn := strings.clone_from_cstring(sqlite.column_text(query, 2))
 		bn := strings.clone_from_cstring(sqlite.column_text(query, 3))
-		w_win := result in White_Wins
-		b_win := result in Black_Wins
+		w := Game_Player_Data{name = wn, has_won = result in White_Wins}
+		b := Game_Player_Data{name = bn, has_won = result in Black_Wins}
+		db_game_id := Game_Id(sqlite.column_int64(query, 0))
 		append(
 			&results,
 			Mini_Game_Data {
-				code = game_code(Game_Id(sqlite.column_int64(query, 0))),
+				game_id = db_game_id,
+				code = game_code(db_game_id),
 				squares = build_mini_squares(board, is_black),
-				wn = is_black ? bn : wn,
-				bn = is_black ? wn : bn,
-				w_win = is_black ? b_win : w_win,
-				b_win = is_black ? w_win : b_win,
+				white = is_black ? b : w,
+				black = is_black ? w : b,
 			},
 		)
 	}

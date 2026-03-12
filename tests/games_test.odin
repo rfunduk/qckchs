@@ -177,10 +177,10 @@ test_game_pair_black_joined :: proc(test: ^t.T) {
 	black_key := make_key('B')
 	result := src.game_pair(&game, black_key, true, T0)
 	t.expect_value(test, result, src.Pair_Result.Black_Joined)
-	t.expect_value(test, game.state, src.State.Turn_White)
-	t.expect_value(test, game.current_player, chess.Player.White)
+	t.expect_value(test, game.state, src.State.Waiting) // stays waiting until presence confirmed
+	t.expect_value(test, game.current_player, chess.Player.None)
 	t.expect_value(test, game.black_key, black_key)
-	t.expect_value(test, game.clock.last_move_at, T0)
+	t.expect_value(test, game.clock.last_move_at, i64(0))
 }
 
 @(test)
@@ -225,9 +225,9 @@ test_game_pair_creator_is_black :: proc(test: ^t.T) {
 	white_key := make_key('W')
 	result2 := src.game_pair(&game, white_key, true, T0)
 	t.expect_value(test, result2, src.Pair_Result.White_Joined)
-	t.expect_value(test, game.state, src.State.Turn_White)
+	t.expect_value(test, game.state, src.State.Waiting) // stays waiting until presence confirmed
 	t.expect_value(test, game.white_key, white_key)
-	t.expect_value(test, game.clock.last_move_at, T0)
+	t.expect_value(test, game.clock.last_move_at, i64(0))
 }
 
 // --- effective_periods ---
@@ -361,11 +361,23 @@ test_game_tick_cleanup_resolved :: proc(test: ^t.T) {
 }
 
 @(test)
-test_game_pair_sets_last_move_at :: proc(test: ^t.T) {
+test_game_tick_starts_when_both_present :: proc(test: ^t.T) {
 	game := make_waiting_game()
 	defer delete(game.moves)
 
+	// Second player joins — game stays Waiting
 	src.game_pair(&game, make_key('B'), true, T0)
+	t.expect_value(test, game.state, src.State.Waiting)
+
+	// Both players ping (presence confirmed)
+	game.white_last_seen = T0
+	game.black_last_seen = T0
+
+	// Tick detects both present → starts the game
+	result := src.game_tick(&game, T0)
+	t.expect_value(test, result, src.Tick_Result.Started)
+	t.expect_value(test, game.state, src.State.Turn_White)
+	t.expect_value(test, game.current_player, chess.Player.White)
 	t.expect_value(test, game.clock.last_move_at, T0)
 }
 

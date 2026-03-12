@@ -318,17 +318,7 @@ route_game_stream :: proc(sse: fio.SSE) {
 	} else {
 		board_html, ok2 := render_board(game, viewer)
 		if ok2 { ds_patch_el(sse, "#board", board_html) }
-
-		color: string
-		switch viewer {
-		case .White:
-			color = "white"
-		case .Black:
-			color = "black"
-		case .None:
-			color = "spectator"
-		}
-		ds_patch_signals(sse, connect_signals(game, color, now))
+		ds_patch_signals(sse, game_signals(game, now))
 	}
 }
 
@@ -350,17 +340,7 @@ route_player_stream :: proc(sse: fio.SSE, player_code_suffix: string) {
 		return
 	}
 
-	active_count := 0
-	for id, &game in g.games {
-		if game.state == .Waiting { continue }
-		if pk != game.white_key && pk != game.black_key { continue }
-		is_black := pk == game.black_key
-		html, rok := render_mini_game(id, &game, is_black)
-		if rok { ds_prepend_el(sse, "#profile-games", html) }
-		active_count += 1
-	}
-
-	log.infof("Player stream opened for player %d (sent %d active games)", player_id, active_count)
+	log.infof("Player stream opened for player %d", player_id)
 }
 
 route_lobby_stream :: proc(sse: fio.SSE) {

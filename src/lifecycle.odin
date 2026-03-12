@@ -24,9 +24,15 @@ lifecycle_tick :: proc "c" (_arg: rawptr) {
 	to_resolve: [dynamic]Game_Id
 	defer delete(to_resolve)
 
+	to_remove_players: [dynamic]Game_Id
+	defer delete(to_remove_players)
+
 	for id, &game in g.games {
 		result := game_tick(&game, now)
 		switch result {
+		case .Started:
+			log.infof("Game %d: both players present, starting", id)
+			append(&to_publish, id)
 		case .Timed_Out:
 			log.debugf("Game %d: timed out", id)
 			append(&to_publish, id)
@@ -35,6 +41,7 @@ lifecycle_tick :: proc "c" (_arg: rawptr) {
 			log.debugf("Game %d: abandoned", id)
 			db_delete(id)
 			append(&to_free, id)
+			append(&to_remove_players, id)
 		case .Cleanup:
 			log.debugf("Game %d: cleanup", id)
 			append(&to_free, id)
@@ -56,6 +63,10 @@ lifecycle_tick :: proc "c" (_arg: rawptr) {
 	// Publish lobby removes BEFORE freeing games
 	for id in to_free {
 		publish_lobby(id, .Remove)
+	}
+
+	// Only notify players for abandoned games (cleanup games stay on profile via DB)
+	for id in to_remove_players {
 		if id in g.games {
 			publish_players(&g.games[id], id, .Remove)
 		}

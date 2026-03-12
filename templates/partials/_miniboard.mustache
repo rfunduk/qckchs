@@ -1,5 +1,5 @@
 <a id="lobby-{{code}}" href="/games/{{code}}" class="mini-game">
-  <div class="mini-bar"><span>{{bn}}</span>{{#b_win}}<span>&#x2714;</span>{{/b_win}}</div>
+  <div class="mini-bar"><span>{{black.name}}</span>{{#black.has_won}}<span>&#x2714;</span>{{/black.has_won}}</div>
   <div class="mini-board">
     {{#squares}}
       <div class="sq">
@@ -9,5 +9,5 @@
       </div>
     {{/squares}}
   </div>
-  <div class="mini-bar"><span>{{wn}}</span>{{#w_win}}<span>&#x2714;</span>{{/w_win}}</div>
+  <div class="mini-bar"><span>{{white.name}}</span>{{#white.has_won}}<span>&#x2714;</span>{{/white.has_won}}</div>
 </a>

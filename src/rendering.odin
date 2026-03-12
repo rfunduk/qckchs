@@ -37,20 +37,27 @@ Square_Data :: struct {
 	hl_to:     bool,
 }
 
+Game_Player_Data :: struct {
+	name:    string,
+	code:    string,
+	periods: u16,
+	has_won: bool,
+}
+
 Game_Page_Data :: struct {
 	using assets: Asset_Paths,
+	game_id:      Game_Id,
 	code:         string,
 	active:       bool,
 	squares:      []Square_Data,
 	result:       string,
 	turn:         string,
 	state:        string,
-	wp:           u16,
-	bp:           u16,
-	wn:           string,
-	bn:           string,
+	white:        Game_Player_Data,
+	black:        Game_Player_Data,
 	color:        string,
 	max_ply:      int,
+	paired:       int,
 }
 
 Mini_Square_Data :: struct {
@@ -60,12 +67,11 @@ Mini_Square_Data :: struct {
 
 Mini_Game_Data :: struct {
 	using assets: Asset_Paths,
+	game_id:      Game_Id,
 	code:         string,
 	squares:      []Mini_Square_Data,
-	wn:           string,
-	bn:           string,
-	w_win:        bool,
-	b_win:        bool,
+	white:        Game_Player_Data,
+	black:        Game_Player_Data,
 }
 
 Index_Page_Data :: struct {
@@ -75,6 +81,8 @@ Index_Page_Data :: struct {
 
 Profile_Page_Data :: struct {
 	using assets: Asset_Paths,
+	on_profile:   bool,
+	public:       bool,
 	name:         string,
 	pk:           string,
 	pk_full:      string,
@@ -102,21 +110,21 @@ build_mini_squares :: proc(board: chess.Board, flipped: bool) -> []Mini_Square_D
 	return squares[:]
 }
 
-render_mini_game :: proc(id: Game_Id, game: ^Game, flipped: bool) -> (string, bool) {
-	code := game_code(id)
-	wn := game.white_name
-	bn := game.black_name
-	w_win := game.result in White_Wins
-	b_win := game.result in Black_Wins
-	data := Mini_Game_Data {
+build_mini_game_data :: proc(id: Game_Id, game: ^Game, flipped: bool) -> Mini_Game_Data {
+	w := Game_Player_Data{name = game.white_name, has_won = game.result in White_Wins}
+	b := Game_Player_Data{name = game.black_name, has_won = game.result in Black_Wins}
+	return Mini_Game_Data {
 		assets  = g_assets,
-		code    = code,
+		game_id = id,
+		code    = game_code(id),
 		squares = build_mini_squares(game.board, flipped),
-		wn      = flipped ? bn : wn,
-		bn      = flipped ? wn : bn,
-		w_win   = flipped ? b_win : w_win,
-		b_win   = flipped ? w_win : b_win,
+		white   = flipped ? b : w,
+		black   = flipped ? w : b,
 	}
+}
+
+render_mini_game :: proc(id: Game_Id, game: ^Game, flipped: bool) -> (string, bool) {
+	data := build_mini_game_data(id, game, flipped)
 	return render_partial("_miniboard", data)
 }
 

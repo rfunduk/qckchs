@@ -29,6 +29,8 @@ handle_request :: proc "c" (req: fio.Req) {
 
 	if path == "/profile" {
 		route_profile(req)
+	} else if strings.has_prefix(path, "/profile/") {
+		route_public_profile(req, path)
 	} else if path == "/" {
 		route_index(req)
 	} else if path == "/new-game" {
@@ -43,6 +45,8 @@ handle_request :: proc "c" (req: fio.Req) {
 		route_replay(req)
 	} else if strings.has_prefix(path, "/check/") {
 		route_check(req)
+	} else if strings.has_prefix(path, "/ping/") {
+		route_ping(req)
 	} else if strings.has_prefix(path, "/static/") {
 		route_static(req, path)
 	} else if path == "/health" {
@@ -66,7 +70,14 @@ route_static :: proc(req: fio.Req, path: string) {
 		respond_404(req)
 		return
 	}
-	fio.respond(req, 200, content_type_for(path), raw_data(data), u32(len(data)), "public, max-age=31536000, immutable")
+	fio.respond(
+		req,
+		200,
+		content_type_for(path),
+		raw_data(data),
+		u32(len(data)),
+		"public, max-age=31536000, immutable",
+	)
 }
 
 route_index :: proc(req: fio.Req) {
@@ -74,25 +85,14 @@ route_index :: proc(req: fio.Req) {
 	games := make([dynamic]Mini_Game_Data)
 	for id, &game in g.games {
 		if game.state == .Waiting { continue }
-		append(
-			&games,
-			Mini_Game_Data {
-				assets = g_assets,
-				code = game_code(id),
-				squares = build_mini_squares(game.board, false),
-				wn = game.white_name,
-				bn = game.black_name,
-				w_win = game.result in White_Wins,
-				b_win = game.result in Black_Wins,
-			},
-		)
+		append(&games, build_mini_game_data(id, &game, false))
 	}
 	data := Index_Page_Data {
 		assets = g_assets,
-		games = games[:],
+		games  = games[:],
 	}
 	html, ok := render_template("index", data)
-	if !ok { respond_404(req);return }
+	if !ok { respond_404(req); return }
 	respond_html(req, html)
 }
 
@@ -229,31 +229,19 @@ route_profile :: proc(req: fio.Req) {
 		}
 
 		// Active games (from memory, with flip)
+		active_ids: map[Game_Id]bool
 		for id, &game in g.games {
 			if game.state == .Waiting { continue }
 			if pk != game.white_key && pk != game.black_key { continue }
 			is_black := pk == game.black_key
-			wn := game.white_name
-			bn := game.black_name
-			w_win := game.result in White_Wins
-			b_win := game.result in Black_Wins
-			append(
-				&player_games,
-				Mini_Game_Data {
-					assets = g_assets,
-					code = game_code(id),
-					squares = build_mini_squares(game.board, is_black),
-					wn = is_black ? bn : wn,
-					bn = is_black ? wn : bn,
-					w_win = is_black ? b_win : w_win,
-					b_win = is_black ? w_win : b_win,
-				},
-			)
+			active_ids[id] = true
+			append(&player_games, build_mini_game_data(id, &game, is_black))
 		}
 
-		// Finished games (from DB, already flipped)
+		// Finished games (from DB, skip any already shown from memory)
 		db_games := db_get_player_games(pk)
 		for dg in db_games {
+			if dg.game_id in active_ids { continue }
 			mgd := dg
 			mgd.assets = g_assets
 			append(&player_games, mgd)
@@ -262,6 +250,7 @@ route_profile :: proc(req: fio.Req) {
 
 	data := Profile_Page_Data {
 		assets      = g_assets,
+		on_profile  = true,
 		name        = name,
 		pk          = pk_ok ? fmt.tprintf("%s...", pk_str[:8]) : "",
 		pk_full     = pk_str,
@@ -276,19 +265,73 @@ route_profile :: proc(req: fio.Req) {
 		player_code = pc,
 	}
 	html, ok := render_template("profile", data)
-	if !ok { respond_500(req);return }
+	if !ok { respond_500(req); return }
+	respond_html(req, html)
+}
+
+route_public_profile :: proc(req: fio.Req, path: string) {
+	p, p_ok := path_params(path, "/profile/", 1)
+	if !p_ok { respond_404(req); return }
+
+	pid, pid_ok := player_id_from_code(p[0])
+	if !pid_ok { respond_404(req); return }
+
+	pk, pk_ok := db_get_player_key(pid)
+	if !pk_ok { respond_404(req); return }
+
+	name := db_get_player_name(pk)
+	if len(name) == 0 { respond_404(req); return }
+
+	stats := db_get_player_stats(pk)
+	pc := player_code(pid)
+
+	player_games: [dynamic]Mini_Game_Data
+
+	// Active games (from memory)
+	active_ids: map[Game_Id]bool
+	for id, &game in g.games {
+		if game.state == .Waiting { continue }
+		if pk != game.white_key && pk != game.black_key { continue }
+		is_black := pk == game.black_key
+		active_ids[id] = true
+		append(&player_games, build_mini_game_data(id, &game, is_black))
+	}
+
+	// Finished games (from DB)
+	db_games := db_get_player_games(pk)
+	for dg in db_games {
+		if dg.game_id in active_ids { continue }
+		mgd := dg
+		mgd.assets = g_assets
+		append(&player_games, mgd)
+	}
+
+	data := Profile_Page_Data {
+		assets      = g_assets,
+		public      = true,
+		name        = name,
+		claimed     = true,
+		played      = int(stats.played),
+		wins        = int(stats.wins),
+		losses      = int(stats.losses),
+		draws       = int(stats.draws),
+		games       = player_games[:],
+		player_code = pc,
+	}
+	html, ok := render_template("profile", data)
+	if !ok { respond_500(req); return }
 	respond_html(req, html)
 }
 
 route_game :: proc(req: fio.Req) {
 	p, ok := path_params(get_path(req), "/games/", 1)
-	if !ok { respond_404(req);return }
+	if !ok { respond_404(req); return }
 	code := p[0]
 
 	if require_claimed(req, fmt.tprintf("/games/%s", code)) { return }
 
 	id, id_ok := game_id_from_code(code)
-	if !id_ok { respond_404(req);return }
+	if !id_ok { respond_404(req); return }
 
 	game: Game
 	active: bool = false
@@ -298,7 +341,7 @@ route_game :: proc(req: fio.Req) {
 	} else {
 		found: bool
 		game, found = db_load_finished_game(id)
-		if !found { respond_404(req);return }
+		if !found { respond_404(req); return }
 	}
 
 	viewer := viewer_from_cookie(req, game)
@@ -306,28 +349,38 @@ route_game :: proc(req: fio.Req) {
 	now := time.to_unix_nanoseconds(time.now())
 	wp, bp := effective_periods(game.clock, game.state, now)
 
-	max_ply := active ? 0 : len(game.moves)
+	max_ply := (active && game.state != .Resolved) ? 0 : len(game.moves)
 	squares: [chess.RANKS * chess.FILES]Square_Data
-	if active {
+	if max_ply == 0 || active {
 		squares = board_squares(game.board, viewer)
 	} else {
 		squares = board_squares_at_ply(game.initial_board, game.moves[:], max_ply, viewer)
 	}
 
+	paired := game.white_key != EMPTY_KEY && game.black_key != EMPTY_KEY
+
+	white_code, black_code: string
+	if wid, wok := db_get_player_id(game.white_key); wok {
+		white_code = player_code(wid)
+	}
+	if bid, bok := db_get_player_id(game.black_key); bok {
+		black_code = player_code(bid)
+	}
+
 	data := Game_Page_Data {
 		assets  = g_assets,
+		game_id = id,
 		code    = code,
 		active  = active,
 		squares = squares[:],
 		result  = result_string(game.result),
 		turn    = turn_string(game.state),
 		state   = state_string(game.state),
-		wp      = wp,
-		bp      = bp,
-		wn      = game.white_name,
-		bn      = game.black_name,
+		white   = {name = game.white_name, code = white_code, periods = wp},
+		black   = {name = game.black_name, code = black_code, periods = bp},
 		color   = viewer == .Black ? "black" : viewer == .White ? "white" : "spectator",
 		max_ply = max_ply,
+		paired  = paired ? 1 : 0,
 	}
 	html, _ := render_template("game", data)
 	respond_html(req, html)
@@ -335,7 +388,7 @@ route_game :: proc(req: fio.Req) {
 
 route_move :: proc(req: fio.Req) {
 	p, ok := path_params(get_path(req), "/move/", 3)
-	if !ok { respond_400(req);return }
+	if !ok { respond_400(req); return }
 	code := p[0]
 
 	from, from_ok := parse_u8(p[1])
@@ -346,10 +399,10 @@ route_move :: proc(req: fio.Req) {
 	}
 
 	id, id_ok := game_id_from_code(code)
-	if !id_ok || id not_in g.games { respond_404(req);return }
+	if !id_ok || id not_in g.games { respond_404(req); return }
 
 	pk, pk_ok := get_cookie_pk(req)
-	if !pk_ok { respond_400(req);return }
+	if !pk_ok { respond_400(req); return }
 
 	game := &g.games[id]
 	now := time.to_unix_nanoseconds(time.now())
@@ -401,11 +454,11 @@ route_move :: proc(req: fio.Req) {
 
 route_check :: proc(req: fio.Req) {
 	p, ok := path_params(get_path(req), "/check/", 1)
-	if !ok { respond_404(req);return }
+	if !ok { respond_404(req); return }
 	code := p[0]
 
 	id, id_ok := game_id_from_code(code)
-	if !id_ok || id not_in g.games { respond_404(req);return }
+	if !id_ok || id not_in g.games { respond_404(req); return }
 
 	game := &g.games[id]
 	now := time.to_unix_nanoseconds(time.now())
@@ -422,13 +475,36 @@ route_check :: proc(req: fio.Req) {
 	fio.respond(req, 204, "text/plain", nil, 0, "no-store")
 }
 
-route_replay :: proc(req: fio.Req) {
-	p, ok := path_params(get_path(req), "/replay/", 2)
-	if !ok { respond_400(req);return }
+route_ping :: proc(req: fio.Req) {
+	p, ok := path_params(get_path(req), "/ping/", 1)
+	if !ok { respond_404(req); return }
 	code := p[0]
 
 	id, id_ok := game_id_from_code(code)
-	if !id_ok { respond_404(req);return }
+	if !id_ok || id not_in g.games { respond_404(req); return }
+
+	pk, pk_ok := get_cookie_pk(req)
+	if !pk_ok { fio.respond(req, 204, "text/plain", nil, 0, "no-store"); return }
+
+	game := &g.games[id]
+	now := time.to_unix_nanoseconds(time.now())
+
+	if pk == game.white_key {
+		game.white_last_seen = now
+	} else if pk == game.black_key {
+		game.black_last_seen = now
+	}
+
+	fio.respond(req, 204, "text/plain", nil, 0, "no-store")
+}
+
+route_replay :: proc(req: fio.Req) {
+	p, ok := path_params(get_path(req), "/replay/", 2)
+	if !ok { respond_400(req); return }
+	code := p[0]
+
+	id, id_ok := game_id_from_code(code)
+	if !id_ok { respond_404(req); return }
 
 	// Reject active games
 	if id in g.games {
@@ -437,10 +513,10 @@ route_replay :: proc(req: fio.Req) {
 	}
 
 	game, found := db_load_finished_game(id)
-	if !found { respond_404(req);return }
+	if !found { respond_404(req); return }
 
 	ply_val, ply_ok := strconv.parse_int(p[1])
-	if !ply_ok { respond_400(req);return }
+	if !ply_ok { respond_400(req); return }
 	ply := clamp(ply_val, 0, len(game.moves))
 
 	viewer := viewer_from_cookie(req, game)
@@ -450,7 +526,7 @@ route_replay :: proc(req: fio.Req) {
 		squares = squares[:],
 	}
 	board_html, render_ok := render_partial("_board", data)
-	if !render_ok { respond_500(req);return }
+	if !render_ok { respond_500(req); return }
 
 	b := strings.builder_make()
 	sse_append_morph_el(&b, "#board", board_html)

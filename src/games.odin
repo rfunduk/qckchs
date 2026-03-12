@@ -33,25 +33,21 @@ Pair_Result :: enum {
 
 // --- Signals ---
 
-Game_Signals :: struct {
-	turn:   string,
-	state:  string,
-	wp:     u16,
-	bp:     u16,
-	wn:     string,
-	bn:     string,
-	result: string,
+Signal_Player :: struct {
+	name:    string,
+	code:    string `json:",omitempty"`,
+	periods: u16,
 }
 
-Connect_Signals :: struct {
-	color:  string,
-	turn:   string,
-	state:  string,
-	wp:     u16,
-	bp:     u16,
-	wn:     string,
-	bn:     string,
-	result: string,
+Game_Signals :: struct {
+	turn:    string,
+	state:   string,
+	white:   Signal_Player,
+	black:   Signal_Player,
+	result:  string,
+	paired:  bool,
+	ply:     int,
+	max_ply: int `json:"maxPly"`,
 }
 
 effective_periods :: proc(clock: Clock, state: State, now: i64) -> (u16, u16) {
@@ -72,30 +68,16 @@ effective_periods :: proc(clock: Clock, state: State, now: i64) -> (u16, u16) {
 
 game_signals :: proc(game: ^Game, now: i64) -> string {
 	wp, bp := effective_periods(game.clock, game.state, now)
+	ply := len(game.moves)
 	sigs := Game_Signals {
-		turn   = turn_string(game.state),
-		state  = state_string(game.state),
-		wp     = wp,
-		bp     = bp,
-		wn     = game.white_name,
-		bn     = game.black_name,
-		result = result_string(game.result),
-	}
-	bytes, _ := json.marshal(sigs)
-	return string(bytes)
-}
-
-connect_signals :: proc(game: ^Game, color: string, now: i64) -> string {
-	wp, bp := effective_periods(game.clock, game.state, now)
-	sigs := Connect_Signals {
-		color  = color,
-		turn   = turn_string(game.state),
-		state  = state_string(game.state),
-		wp     = wp,
-		bp     = bp,
-		wn     = game.white_name,
-		bn     = game.black_name,
-		result = result_string(game.result),
+		turn    = turn_string(game.state),
+		state   = state_string(game.state),
+		white   = {name = game.white_name, periods = wp},
+		black   = {name = game.black_name, periods = bp},
+		result  = result_string(game.result),
+		paired  = game.white_key != EMPTY_KEY && game.black_key != EMPTY_KEY,
+		ply     = ply,
+		max_ply = ply,
 	}
 	bytes, _ := json.marshal(sigs)
 	return string(bytes)
@@ -290,19 +272,11 @@ game_pair :: proc(game: ^Game, pk: Player_Key, pk_ok: bool, now: i64) -> Pair_Re
 	if pk == game.black_key { return .Black_Connected }
 	if game.white_key == EMPTY_KEY {
 		game.white_key = pk
-		game.current_player = .White
-		game.state = .Turn_White
-		game.clock.last_move_at = now
-		record_position(game)
 		db_save(game)
 		return .White_Joined
 	}
 	if game.black_key == EMPTY_KEY {
 		game.black_key = pk
-		game.current_player = .White
-		game.state = .Turn_White
-		game.clock.last_move_at = now
-		record_position(game)
 		db_save(game)
 		return .Black_Joined
 	}
@@ -315,6 +289,17 @@ game_tick :: proc(game: ^Game, now: i64) -> Tick_Result {
 		timeout := game.difficulty != .None ? BOT_ABANDON_TIMEOUT : ABANDON_TIMEOUT
 		if now - game.created_at >= timeout {
 			return .Abandoned
+		}
+		if game.white_key != EMPTY_KEY && game.black_key != EMPTY_KEY &&
+		   game.white_last_seen != 0 && game.black_last_seen != 0 &&
+		   now - game.white_last_seen < PRESENCE_THRESHOLD &&
+		   now - game.black_last_seen < PRESENCE_THRESHOLD {
+			game.state = .Turn_White
+			game.current_player = .White
+			game.clock.last_move_at = now
+			record_position(game)
+			db_save(game)
+			return .Started
 		}
 	case .Turn_White, .Turn_Black:
 		timed_out, _, _ := apply_timeout(game, now)
@@ -403,13 +388,17 @@ moves_algebraic :: proc(starting_board: chess.Board, moves: []chess.Move) -> []s
 	return result
 }
 
+JSON_Player :: struct {
+	periods: u16,
+}
+
 Game_JSON :: struct {
 	state:  string,
 	turn:   string,
 	color:  string,
 	board:  string,
-	wp:     u16,
-	bp:     u16,
+	white:  JSON_Player,
+	black:  JSON_Player,
 	moves:  []string,
 	result: string,
 }
@@ -432,8 +421,8 @@ game_json :: proc(game: ^Game, viewer: chess.Player, now: i64) -> string {
 		turn   = turn_string(game.state),
 		color  = color,
 		board  = board_string(game.board),
-		wp     = wp,
-		bp     = bp,
+		white  = {periods = wp},
+		black  = {periods = bp},
 		moves  = moves_algebraic(game.initial_board, game.moves[:]),
 		result = result_string(game.result),
 	}

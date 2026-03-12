@@ -33,6 +33,8 @@ Square_Data :: struct {
 	index:     u8,
 	has_piece: bool,
 	targets:   string,
+	hl_from:   bool,
+	hl_to:     bool,
 }
 
 Game_Page_Data :: struct {
@@ -48,6 +50,7 @@ Game_Page_Data :: struct {
 	wn:           string,
 	bn:           string,
 	color:        string,
+	max_ply:      int,
 }
 
 Mini_Square_Data :: struct {
@@ -151,6 +154,44 @@ board_squares :: proc(board: chess.Board, viewer: chess.Player) -> [chess.RANKS 
 			targets   = targets_str,
 		}
 	}
+	return result
+}
+
+board_squares_at_ply :: proc(
+	initial_board: chess.Board,
+	moves: []chess.Move,
+	ply: int,
+	viewer: chess.Player,
+) -> [chess.RANKS * chess.FILES]Square_Data {
+	board := initial_board
+	for i in 0 ..< ply {
+		chess.apply_move(&board, moves[i])
+	}
+
+	result: [chess.RANKS * chess.FILES]Square_Data
+	for sq in 0 ..< chess.RANKS * chess.FILES {
+		board_idx := viewer == .Black ? (chess.RANKS * chess.FILES - 1 - sq) : sq
+		piece := board[board_idx]
+		result[sq] = {
+			piece     = piece,
+			index     = board_idx,
+			has_piece = piece != .X,
+		}
+	}
+
+	if ply > 0 {
+		move := moves[ply - 1]
+		for sq in 0 ..< chess.RANKS * chess.FILES {
+			board_idx := viewer == .Black ? u8(chess.RANKS * chess.FILES - 1 - sq) : u8(sq)
+			if board_idx == move.from {
+				result[sq].hl_from = true
+			}
+			if board_idx == move.to {
+				result[sq].hl_to = true
+			}
+		}
+	}
+
 	return result
 }
 

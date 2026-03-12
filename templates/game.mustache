@@ -6,10 +6,12 @@
   <div data-on:flag__window="@get('/check/{{code}}')"></div>
 {{/active}}
 
-<div data-signals="{ color: '{{color}}', turn: '{{turn}}', state: '{{state}}', wp: {{wp}}, bp: {{bp}}, wn: '{{wn}}', bn: '{{bn}}', result: '{{result}}', statusDismissed: false }">
+<div data-signals="{ color: '{{color}}', turn: '{{turn}}', state: '{{state}}', wp: {{wp}}, bp: {{bp}}, wn: '{{wn}}', bn: '{{bn}}', result: '{{result}}', statusDismissed: false, ply: {{max_ply}}, maxPly: {{max_ply}} }">
+  <div data-on:keydown__window="evt.key === 'ArrowLeft' && @get('/replay/{{code}}/' + ($ply - 1))"></div>
+  <div data-on:keydown__window="evt.key === 'ArrowRight' && @get('/replay/{{code}}/' + ($ply + 1))"></div>
   <div class="game-area">
 
-    <div class="game-status" style="display: none;" data-show="($state == 'waiting' || $state == 'resolved') && !$statusDismissed">
+    <div class="game-status" style="display: none;" data-show="($state == 'waiting' || ($state == 'resolved' && $ply === $maxPly)) && !$statusDismissed">
       <button class="dismiss-btn" style="display: none;" data-show="$state === 'resolved'" data-on:click__prevent="$statusDismissed = true">&times;</button>
       <div style="display: none;" data-show="$state === 'resolved'" data-text="$result"></div>
       <div style="display: none;" data-show="$state === 'waiting'">

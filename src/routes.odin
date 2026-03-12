@@ -4,6 +4,7 @@ import "core:fmt"
 import "core:log"
 import "core:mem/virtual"
 import "core:os"
+import "core:strconv"
 import "core:strings"
 import "core:time"
 
@@ -38,6 +39,8 @@ handle_request :: proc "c" (req: fio.Req) {
 		route_game(req)
 	} else if strings.has_prefix(path, "/move/") {
 		route_move(req)
+	} else if strings.has_prefix(path, "/replay/") {
+		route_replay(req)
 	} else if strings.has_prefix(path, "/check/") {
 		route_check(req)
 	} else if strings.has_prefix(path, "/static/") {
@@ -302,7 +305,15 @@ route_game :: proc(req: fio.Req) {
 
 	now := time.to_unix_nanoseconds(time.now())
 	wp, bp := effective_periods(game.clock, game.state, now)
-	squares := board_squares(game.board, viewer)
+
+	max_ply := active ? 0 : len(game.moves)
+	squares: [chess.RANKS * chess.FILES]Square_Data
+	if active {
+		squares = board_squares(game.board, viewer)
+	} else {
+		squares = board_squares_at_ply(game.initial_board, game.moves[:], max_ply, viewer)
+	}
+
 	data := Game_Page_Data {
 		assets  = g_assets,
 		code    = code,
@@ -316,6 +327,7 @@ route_game :: proc(req: fio.Req) {
 		wn      = game.white_name,
 		bn      = game.black_name,
 		color   = viewer == .Black ? "black" : viewer == .White ? "white" : "spectator",
+		max_ply = max_ply,
 	}
 	html, _ := render_template("game", data)
 	respond_html(req, html)
@@ -408,4 +420,40 @@ route_check :: proc(req: fio.Req) {
 	}
 
 	fio.respond(req, 204, "text/plain", nil, 0, "no-store")
+}
+
+route_replay :: proc(req: fio.Req) {
+	p, ok := path_params(get_path(req), "/replay/", 2)
+	if !ok { respond_400(req);return }
+	code := p[0]
+
+	id, id_ok := game_id_from_code(code)
+	if !id_ok { respond_404(req);return }
+
+	// Reject active games
+	if id in g.games {
+		respond_400(req)
+		return
+	}
+
+	game, found := db_load_finished_game(id)
+	if !found { respond_404(req);return }
+
+	ply_val, ply_ok := strconv.parse_int(p[1])
+	if !ply_ok { respond_400(req);return }
+	ply := clamp(ply_val, 0, len(game.moves))
+
+	viewer := viewer_from_cookie(req, game)
+	squares := board_squares_at_ply(game.initial_board, game.moves[:], ply, viewer)
+	data := Game_Page_Data {
+		assets  = g_assets,
+		squares = squares[:],
+	}
+	board_html, render_ok := render_partial("_board", data)
+	if !render_ok { respond_500(req);return }
+
+	b := strings.builder_make()
+	sse_append_morph_el(&b, "#board", board_html)
+	sse_append_signals(&b, fmt.tprintf("{{ ply: %d }}", ply))
+	sse_respond(req, &b)
 }

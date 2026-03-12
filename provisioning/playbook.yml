@@ -169,6 +169,9 @@
     - name: Disable zero-downtime checks
       command: dokku checks:disable {{ app_name }}
 
+    - name: Set container stop timeout to 1 second
+      command: dokku docker-options:add {{ app_name }} deploy --stop-timeout=1
+
     - name: Create persistent storage directory on host
       file:
         path: "{{ storage_host_path }}"

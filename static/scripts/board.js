@@ -1,5 +1,7 @@
 import { getPath } from 'datastar'
 
+const SPEED = "80ms"
+
 let draggingSq = null
 let clone = null
 let originEl = null
@@ -37,31 +39,43 @@ function animateBoardChange() {
     return
   }
 
-  // Find which square lost a piece (the move source)
-  let fromPiece = null
-  let fromRect = null
+  // Classify changes between old and new snapshots
+  let emptied = null  // had piece, now empty
+  let appeared = null // was empty, now has piece
+  let changed = null  // had piece, now different piece
+
   for (const [sq, data] of oldSnap) {
     const cur = pieceSnapshot.get(sq)
-    if (!cur || cur.piece !== data.piece) {
-      fromPiece = data.piece
-      fromRect = data.rect
-      break
+    if (!cur) {
+      emptied = { sq, rect: data.rect }
+    } else if (cur.piece !== data.piece) {
+      changed = { sq, rect: data.rect }
     }
   }
-  if (!fromRect) { return }
+  for (const [sq] of pieceSnapshot) {
+    if (!oldSnap.has(sq)) {
+      appeared = sq
+    }
+  }
 
-  // Find where that piece appeared (the move destination)
+  let fromRect = null
   let toEl = null
-  for (const [sq, data] of pieceSnapshot) {
-    if (data.piece === fromPiece) {
-      const old = oldSnap.get(sq)
-      if (!old || old.piece !== data.piece) {
-        toEl = document.querySelector(`#board [data-sq="${sq}"] img`)
-        break
-      }
-    }
+
+  if (emptied && appeared) {
+    // Normal move or promotion: piece left one square, appeared at another
+    fromRect = emptied.rect
+    toEl = document.querySelector(`#board [data-sq="${appeared}"] img`)
+  } else if (emptied && changed) {
+    // Capture: piece left source, replaced captured piece at destination
+    fromRect = emptied.rect
+    toEl = document.querySelector(`#board [data-sq="${changed.sq}"] img`)
+  } else if (appeared && changed) {
+    // Backward capture: piece returns to source, captured piece reappears
+    fromRect = changed.rect
+    toEl = document.querySelector(`#board [data-sq="${appeared}"] img`)
   }
-  if (!toEl) { return }
+
+  if (!fromRect || !toEl) { return }
 
   const toRect = toEl.getBoundingClientRect()
   const dx = fromRect.left - toRect.left
@@ -71,7 +85,7 @@ function animateBoardChange() {
   toEl.style.transition = 'none'
   toEl.style.transform = `translate(${dx}px, ${dy}px)`
   void toEl.offsetWidth // force reflow
-  toEl.style.transition = 'transform 80ms ease-out'
+  toEl.style.transition = `transform ${SPEED} ease-out`
   toEl.style.transform = ''
   toEl.addEventListener('transitionend', () => {
     toEl.style.transition = ''

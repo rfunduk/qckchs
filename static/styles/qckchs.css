@@ -245,6 +245,7 @@ body {
   grid-template-rows: repeat(6, 1fr);
   border: 1px solid black;
   box-sizing: content-box;
+  overflow: hidden;
 
   > div.sq {
     position: relative;
@@ -256,13 +257,11 @@ body {
     width: 100px;
     height: 100px;
     box-sizing: border-box;
-    overflow: hidden;
+    overflow: visible;
     &:nth-child(odd)::before {
       content: '';
       position: absolute;
-      inset: -50%;
-      width: 200%;
-      height: 200%;
+      inset: 0;
       background-color: white;
       background-image: repeating-linear-gradient(
         -45deg,
@@ -303,6 +302,29 @@ body {
       background-position: top left, top right, bottom right, bottom left;
       background-size: 50% 50%;
       background-repeat: no-repeat;
+    }
+    &.hl-from::after,
+    &.hl-to::after {
+      content: '';
+      position: absolute;
+      inset: 2px;
+      pointer-events: none;
+      z-index: 0;
+      --l: 14px;
+      --t: 2px;
+      background:
+        /* top-left */
+        linear-gradient(black, black) top left / var(--l) var(--t) no-repeat,
+        linear-gradient(black, black) top left / var(--t) var(--l) no-repeat,
+        /* top-right */
+        linear-gradient(black, black) top right / var(--l) var(--t) no-repeat,
+        linear-gradient(black, black) top right / var(--t) var(--l) no-repeat,
+        /* bottom-right */
+        linear-gradient(black, black) bottom right / var(--l) var(--t) no-repeat,
+        linear-gradient(black, black) bottom right / var(--t) var(--l) no-repeat,
+        /* bottom-left */
+        linear-gradient(black, black) bottom left / var(--l) var(--t) no-repeat,
+        linear-gradient(black, black) bottom left / var(--t) var(--l) no-repeat;
     }
   }
 }

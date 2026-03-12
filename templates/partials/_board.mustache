@@ -1,6 +1,6 @@
 <div id="board">
   {{#squares}}
-    <div class="sq" data-sq="{{index}}" data-piece="{{piece}}" data-targets="{{targets}}">
+    <div class="sq{{#hl_from}} hl-from{{/hl_from}}{{#hl_to}} hl-to{{/hl_to}}" data-sq="{{index}}" data-piece="{{piece}}" data-targets="{{targets}}">
       {{#has_piece}}
         <img src="/static/images/pieces/{{piece}}-{{piece_hash}}.svg" draggable="false">
       {{/has_piece}}

@@ -5,6 +5,7 @@
     ansible_user: root
     ansible_ssh_common_args: '-o ControlMaster=auto -o ControlPath=/tmp/ansible-%r@%h:%p -o ControlPersist=10m'
     dokku_root: /var/lib/dokku
+    dokku_app_root: /home/dokku
   vars_files:
     - vars.yml
   tasks:
@@ -232,28 +233,28 @@
 
     - name: Create nginx.conf.d directory for app
       file:
-        path: "{{ dokku_root }}/{{ app_name }}/nginx.conf.d"
+        path: "{{ dokku_app_root }}/{{ app_name }}/nginx.conf.d"
         state: directory
         mode: "0755"
 
     - name: Deploy static assets nginx config
       template:
         src: templates/static.conf
-        dest: "{{ dokku_root }}/{{ app_name }}/nginx.conf.d/static.conf"
+        dest: "{{ dokku_app_root }}/{{ app_name }}/nginx.conf.d/static.conf"
         mode: "0644"
       notify: Rebuild nginx config
 
     - name: Deploy maintenance page nginx config
       template:
         src: templates/maintenance.conf
-        dest: "{{ dokku_root }}/{{ app_name }}/nginx.conf.d/maintenance.conf"
+        dest: "{{ dokku_app_root }}/{{ app_name }}/nginx.conf.d/maintenance.conf"
         mode: "0644"
       notify: Rebuild nginx config
 
     - name: Deploy error pages nginx config
       template:
         src: templates/errors.conf
-        dest: "{{ dokku_root }}/{{ app_name }}/nginx.conf.d/errors.conf"
+        dest: "{{ dokku_app_root }}/{{ app_name }}/nginx.conf.d/errors.conf"
         mode: "0644"
       notify: Rebuild nginx config
 

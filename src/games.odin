@@ -4,11 +4,9 @@ import sa "core:container/small_array"
 import "core:encoding/json"
 import "core:log"
 import "core:math/rand"
-import "core:strings"
 import "core:time"
 
 import "chess"
-
 
 // --- Result types ---
 
@@ -196,9 +194,7 @@ apply_timeout :: proc(game: ^Game, now: i64) -> (timed_out: bool, wp: u16, bp: u
 }
 
 game_move :: proc(game: ^Game, pk: Player_Key, from, to: u8, now: i64) -> (chess.Move, Move_Result) {
-	if game.state != .Turn_White && game.state != .Turn_Black {
-		return {}, .Invalid_State
-	}
+	if game.state not_in PLAYING_STATES { return {}, .Invalid_State }
 	if game.state == .Turn_White && pk != game.white_key { return {}, .Wrong_Player }
 	if game.state == .Turn_Black && pk != game.black_key { return {}, .Wrong_Player }
 
@@ -227,10 +223,10 @@ game_move :: proc(game: ^Game, pk: Player_Key, from, to: u8, now: i64) -> (chess
 	} else if is_progress && chess.is_insufficient_material(game.board) {
 		game.state = .Stalemate
 		game.result = .Stalemate
-	} else if is_threefold_repetition(game) {
+	} else if chess.is_threefold_repetition(sa.slice(&game.position_hashes)) {
 		game.state = .Stalemate
 		game.result = .Draw_Repetition
-	} else if game.no_progress_count >= 50 {
+	} else if game.no_progress_count >= chess.NO_PROGRESS_THRESHOLD {
 		game.state = .Stalemate
 		game.result = .Draw_No_Progress
 	} else {
@@ -246,24 +242,8 @@ game_move :: proc(game: ^Game, pk: Player_Key, from, to: u8, now: i64) -> (chess
 
 record_position :: proc(game: ^Game) {
 	h := chess.board_hash(game.board, game.current_player)
-	if sa.len(game.position_hashes) >= 50 {
-		sa.pop_front(&game.position_hashes)
-	}
+	if sa.len(game.position_hashes) >= 50 { sa.pop_front(&game.position_hashes) }
 	sa.push_back(&game.position_hashes, h)
-}
-
-is_threefold_repetition :: proc(game: ^Game) -> bool {
-	n := sa.len(game.position_hashes)
-	if n < 3 { return false }
-	last := sa.get(game.position_hashes, n - 1)
-	count := 0
-	for i in 0 ..< n {
-		if sa.get(game.position_hashes, i) == last {
-			count += 1
-			if count >= 3 { return true }
-		}
-	}
-	return false
 }
 
 game_pair :: proc(game: ^Game, pk: Player_Key, pk_ok: bool, now: i64) -> Pair_Result {
@@ -287,15 +267,15 @@ game_tick :: proc(game: ^Game, now: i64) -> Tick_Result {
 	switch game.state {
 	case .Waiting:
 		timeout := game.difficulty != .None ? BOT_ABANDON_TIMEOUT : ABANDON_TIMEOUT
-		if now - game.created_at >= timeout {
-			return .Abandoned
-		}
-		if game.white_key != EMPTY_KEY &&
-		   game.black_key != EMPTY_KEY &&
-		   game.white_last_seen != 0 &&
-		   game.black_last_seen != 0 &&
-		   now - game.white_last_seen < PRESENCE_THRESHOLD &&
-		   now - game.black_last_seen < PRESENCE_THRESHOLD {
+		if now - game.created_at >= timeout { return .Abandoned }
+		can_start :=
+			game.white_key != EMPTY_KEY &&
+			game.black_key != EMPTY_KEY &&
+			game.white_last_seen != 0 &&
+			game.black_last_seen != 0 &&
+			now - game.white_last_seen < PRESENCE_THRESHOLD &&
+			now - game.black_last_seen < PRESENCE_THRESHOLD
+		if can_start {
 			game.state = .Turn_White
 			game.current_player = .White
 			game.clock.last_move_at = now
@@ -313,82 +293,6 @@ game_tick :: proc(game: ^Game, now: i64) -> Tick_Result {
 }
 
 // --- JSON representation ---
-
-board_string :: proc(board: chess.Board) -> string {
-	b := strings.builder_make(0, int(chess.RANKS * chess.FILES))
-	for sq in board { strings.write_byte(&b, chess.piece_char(sq)) }
-	return strings.to_string(b)
-}
-
-sq_file :: proc(sq: u8) -> u8 { return sq % chess.FILES }
-sq_rank :: proc(sq: u8) -> u8 { return chess.RANKS - sq / chess.FILES }
-
-piece_san_prefix :: proc(piece: chess.Piece) -> u8 {
-	if piece in chess.Kings { return 'K' }
-	if piece in chess.Queens { return 'Q' }
-	if piece in chess.Rooks { return 'R' }
-	if piece in chess.Bishops { return 'B' }
-	if piece in chess.Knights { return 'N' }
-	return 0
-}
-
-move_algebraic :: proc(board: chess.Board, move: chess.Move) -> string {
-	b := strings.builder_make()
-	prefix := piece_san_prefix(move.piece)
-	is_pawn := prefix == 0
-
-	if !is_pawn {
-		strings.write_byte(&b, prefix)
-
-		// Disambiguation: check if another piece of the same type can reach the target
-		same_file, same_rank: bool
-		ambiguous := false
-		for sq: u8 = 0; sq < chess.RANKS * chess.FILES; sq += 1 {
-			if sq == move.from { continue }
-			if board[sq] != move.piece { continue }
-			if int(move.to) not_in chess.piece_targets(board, sq) { continue }
-			ambiguous = true
-			if sq_file(sq) == sq_file(move.from) { same_file = true }
-			if sq / chess.FILES == move.from / chess.FILES { same_rank = true }
-		}
-		if ambiguous {
-			if !same_file {
-				strings.write_byte(&b, 'a' + sq_file(move.from))
-			} else if !same_rank {
-				strings.write_byte(&b, '0' + sq_rank(move.from))
-			} else {
-				strings.write_byte(&b, 'a' + sq_file(move.from))
-				strings.write_byte(&b, '0' + sq_rank(move.from))
-			}
-		}
-	} else if move.capture {
-		strings.write_byte(&b, 'a' + sq_file(move.from))
-	}
-
-	if move.capture { strings.write_byte(&b, 'x') }
-
-	strings.write_byte(&b, 'a' + sq_file(move.to))
-	strings.write_byte(&b, '0' + sq_rank(move.to))
-
-	// Promotion
-	if move.piece == .WP && move.to < chess.FILES {
-		strings.write_string(&b, "=Q")
-	} else if move.piece == .BP && move.to >= chess.RANKS * chess.FILES - chess.FILES {
-		strings.write_string(&b, "=Q")
-	}
-
-	return strings.to_string(b)
-}
-
-moves_algebraic :: proc(starting_board: chess.Board, moves: []chess.Move) -> []string {
-	result := make([]string, len(moves))
-	board := starting_board
-	for i in 0 ..< len(moves) {
-		result[i] = move_algebraic(board, moves[i])
-		chess.apply_move(&board, moves[i])
-	}
-	return result
-}
 
 JSON_Player :: struct {
 	periods: u16,
@@ -422,10 +326,10 @@ game_json :: proc(game: ^Game, viewer: chess.Player, now: i64) -> string {
 		state = state_string(game.state),
 		turn = turn_string(game.state),
 		color = color,
-		board = board_string(game.board),
+		board = chess.board_string(game.board),
 		white = {periods = wp},
 		black = {periods = bp},
-		moves = moves_algebraic(game.initial_board, game.moves[:]),
+		moves = chess.moves_algebraic(game.initial_board, game.moves[:]),
 		result = result_string(game.result),
 	}
 	bytes, _ := json.marshal(data)

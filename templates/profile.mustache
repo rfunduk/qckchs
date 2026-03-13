@@ -1,10 +1,10 @@
 {{> _header}}
 
 <div class="profile-page">
-  {{#public}}
+  {{^edit_profile}}
     <h2>{{name}}</h2>
-  {{/public}}
-  {{^public}}
+  {{/edit_profile}}
+  {{#edit_profile}}
     {{#saved}}
       <div class="notice">Name saved.</div>
     {{/saved}}
@@ -40,7 +40,7 @@
         </div>
       </div>
     </form>
-  {{/public}}
+  {{/edit_profile}}
 
   {{#claimed}}
     <div class="profile-stats"

@@ -72,12 +72,6 @@ init :: proc() {
 	}
 }
 
-piece_owner :: proc(piece: Piece) -> Player {
-	if piece in White_Pieces { return .White }
-	if piece in Black_Pieces { return .Black }
-	return .None
-}
-
 piece_targets :: proc(board: Board, from: u8) -> Targets {
 	piece := board[from]
 	if piece in Sliding_Pieces { return sliding_targets(board, from, piece) }

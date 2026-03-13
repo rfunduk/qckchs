@@ -10,6 +10,69 @@ import fio "lib:facilio"
 
 import "chess"
 
+// --- CLI helpers ---
+
+cli_lookup_game :: proc(code: string) {
+	engine_init()
+	defer cleanup()
+	db_init()
+	defer db_shutdown()
+
+	id, ok := game_id_from_code(code)
+	if !ok {
+		fmt.eprintfln("Invalid game code: %s", code)
+		return
+	}
+
+	game, found := db_load_finished_game(id)
+	if !found {
+		fmt.eprintfln("Game %s (id=%d) not found", code, id)
+		return
+	}
+	defer delete(game.moves)
+	defer delete(game.white_name)
+	defer delete(game.black_name)
+
+	fmt.printfln("Game %s (#%d)", code, id)
+	fmt.printfln("White:  %s", len(game.white_name) > 0 ? game.white_name : "(unknown)")
+	fmt.printfln("Black:  %s", len(game.black_name) > 0 ? game.black_name : "(unknown)")
+	fmt.printfln("State:  %v", game.state)
+	if game.result != .In_Progress {
+		fmt.printfln("Result: %s", result_string(game.result))
+	}
+	fmt.printfln("Clock:  W=%d  B=%d", game.clock.white_periods, game.clock.black_periods)
+	fmt.println()
+
+	// Board
+	fmt.println("  a b c d e")
+	for r: u8 = 0; r < chess.RANKS; r += 1 {
+		fmt.printf("%d", chess.RANKS - r)
+		for f: u8 = 0; f < chess.FILES; f += 1 {
+			p := game.board[r * chess.FILES + f]
+			fmt.printf(" %c", p == .X ? '.' : chess.piece_char(p))
+		}
+		fmt.println()
+	}
+	fmt.println()
+
+	// Moves
+	if len(game.moves) > 0 {
+		san := chess.moves_algebraic(game.initial_board, game.moves[:])
+		defer {
+			for m in san { delete(m) }
+			delete(san)
+		}
+		for m, i in san {
+			if i % 2 == 0 {
+				fmt.printf("%d. %-6s", i / 2 + 1, m)
+			} else {
+				fmt.printfln(" %s", m)
+			}
+		}
+		if len(san) % 2 != 0 { fmt.println() }
+	}
+}
+
 // --- HTTP helpers ---
 
 get_path :: proc(req: fio.Req) -> string {

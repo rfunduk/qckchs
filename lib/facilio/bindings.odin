@@ -1,6 +1,6 @@
 package facilio
 
-foreign import wrapper {#config(FACILIO_WRAPPER_LIB, "wrapper.a")}
+foreign import wrapper "system:facilio_wrapper"
 
 Req :: distinct rawptr
 SSE :: distinct rawptr

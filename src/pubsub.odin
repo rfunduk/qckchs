@@ -13,7 +13,7 @@ import fio "lib:facilio"
 import "chess"
 
 // --- SSE subscription data packed into a uintptr (no allocation needed) ---
-// Layout: [id:56][flags:8] — lower byte encodes kind + viewer + json flag.
+// Layout: [id:56][flags:8] — lower byte encodes kind + id + viewer + json flag.
 
 Sub_Kind :: enum {
 	Lobby,

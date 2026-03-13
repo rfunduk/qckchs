@@ -387,7 +387,7 @@ test_game_tick_starts_when_both_present :: proc(test: ^t.T) {
 test_board_string_initial :: proc(test: ^t.T) {
 	context.allocator = context.temp_allocator
 	defer free_all(context.temp_allocator)
-	s := src.board_string(TEST_BOARD)
+	s := chess.board_string(TEST_BOARD)
 	t.expect_value(test, s, "rbqknpppppxxxxxxxxxxPPPPPRBQKN")
 }
 
@@ -395,7 +395,7 @@ test_board_string_initial :: proc(test: ^t.T) {
 test_board_string_empty :: proc(test: ^t.T) {
 	context.allocator = context.temp_allocator
 	defer free_all(context.temp_allocator)
-	s := src.board_string(empty_board())
+	s := chess.board_string(empty_board())
 	t.expect_value(test, s, "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
 }
 
@@ -406,7 +406,7 @@ test_move_algebraic_pawn_forward :: proc(test: ^t.T) {
 	context.allocator = context.temp_allocator
 	defer free_all(context.temp_allocator)
 	// WP at c2 (index 22) moves to c3 (index 17)
-	s := src.move_algebraic(TEST_BOARD, chess.Move{piece = .WP, from = 22, to = 17})
+	s := chess.move_algebraic(TEST_BOARD, chess.Move{piece = .WP, from = 22, to = 17})
 	t.expect_value(test, s, "c3")
 }
 
@@ -417,7 +417,7 @@ test_move_algebraic_pawn_capture :: proc(test: ^t.T) {
 	board := empty_board()
 	board[22] = .WP
 	board[16] = .BN
-	s := src.move_algebraic(board, chess.Move{piece = .WP, from = 22, to = 16, capture = true})
+	s := chess.move_algebraic(board, chess.Move{piece = .WP, from = 22, to = 16, capture = true})
 	t.expect_value(test, s, "cxb3")
 }
 
@@ -427,7 +427,7 @@ test_move_algebraic_knight :: proc(test: ^t.T) {
 	defer free_all(context.temp_allocator)
 	board := empty_board()
 	board[29] = .WN
-	s := src.move_algebraic(board, chess.Move{piece = .WN, from = 29, to = 18})
+	s := chess.move_algebraic(board, chess.Move{piece = .WN, from = 29, to = 18})
 	t.expect_value(test, s, "Nd3")
 }
 
@@ -439,7 +439,7 @@ test_move_algebraic_knight_disambiguation :: proc(test: ^t.T) {
 	board[1] = .WN // b6
 	board[9] = .WN // e5
 	// Both can reach c4 (index 12): b6→c4 and e5→c4
-	s := src.move_algebraic(board, chess.Move{piece = .WN, from = 1, to = 12})
+	s := chess.move_algebraic(board, chess.Move{piece = .WN, from = 1, to = 12})
 	t.expect_value(test, s, "Nbc4")
 }
 
@@ -449,7 +449,7 @@ test_move_algebraic_promotion :: proc(test: ^t.T) {
 	defer free_all(context.temp_allocator)
 	board := empty_board()
 	board[6] = .WP // b5, one step from black's back rank
-	s := src.move_algebraic(board, chess.Move{piece = .WP, from = 6, to = 1})
+	s := chess.move_algebraic(board, chess.Move{piece = .WP, from = 6, to = 1})
 	t.expect_value(test, s, "b6=Q")
 }
 
@@ -460,7 +460,7 @@ test_move_algebraic_queen :: proc(test: ^t.T) {
 	board := empty_board()
 	board[12] = .WQ
 	board[7] = .BK
-	s := src.move_algebraic(board, chess.Move{piece = .WQ, from = 12, to = 7, capture = true})
+	s := chess.move_algebraic(board, chess.Move{piece = .WQ, from = 12, to = 7, capture = true})
 	t.expect_value(test, s, "Qxc5")
 }
 
@@ -470,7 +470,7 @@ test_move_algebraic_queen :: proc(test: ^t.T) {
 test_moves_algebraic_empty :: proc(test: ^t.T) {
 	context.allocator = context.temp_allocator
 	defer free_all(context.temp_allocator)
-	result := src.moves_algebraic(TEST_BOARD, nil)
+	result := chess.moves_algebraic(TEST_BOARD, nil)
 	t.expect_value(test, len(result), 0)
 }
 
@@ -480,7 +480,7 @@ test_moves_algebraic_sequence :: proc(test: ^t.T) {
 	defer free_all(context.temp_allocator)
 	// 1. c3 c4
 	moves := []chess.Move{{piece = .WP, from = 22, to = 17}, {piece = .BP, from = 7, to = 12}}
-	result := src.moves_algebraic(TEST_BOARD, moves)
+	result := chess.moves_algebraic(TEST_BOARD, moves)
 	t.expect_value(test, len(result), 2)
 	t.expect_value(test, result[0], "c3")
 	t.expect_value(test, result[1], "c4")

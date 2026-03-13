@@ -3,6 +3,5 @@ vendor/**/*
 tests.bin.*
 *_generated.odin
 provisioning/vars.yml
-digest.json
 *.db*
 mimir.json

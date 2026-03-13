@@ -2,6 +2,7 @@ package qckchs
 
 import "core:log"
 import "core:strings"
+
 import fio "lib:facilio"
 
 // Write SSE data, close connection on failure (write queue overflow / dead connection).

@@ -4,6 +4,20 @@ import "core:log"
 import "core:os"
 import "core:sync"
 
+fio_log :: proc "c" (level: i32, msg: [^]u8, len: u32) {
+	context = global_context
+	s := string(msg[:len])
+	//odinfmt: disable
+	switch level {
+	case 0:	log.debug(s)
+	case 2:	log.warn(s)
+	case 3:	log.error(s)
+	case 4:	log.fatal(s)
+	case:	log.info(s)
+	}
+	//odinfmt: enable
+}
+
 // Thread-safe logger wrapper — mutex around Odin's non-thread-safe file logger
 TS_Logger_Data :: struct {
 	mutex:      sync.Mutex,

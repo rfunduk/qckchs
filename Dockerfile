@@ -13,6 +13,7 @@ RUN curl -sL "https://github.com/odin-lang/Odin/releases/download/${ODIN_VERSION
 WORKDIR /qckchs
 
 # Vendor deps layer — only rebuilds when setup script or lib bindings change
+COPY bin/codegen bin/codegen
 COPY bin/build bin/build
 COPY bin/setup bin/setup
 RUN bin/setup
@@ -37,7 +38,6 @@ WORKDIR /app
 
 COPY --from=build /qckchs/build/release/qckchs       /app/qckchs
 COPY --from=build /qckchs/build/release/static/      /app/static/
-COPY --from=build /qckchs/build/release/digest.json  /app/digest.json
 COPY --from=build /qckchs/build/release/mimir.nnue   /app/mimir.nnue
 COPY --from=build /qckchs/build/release/egtb/        /app/egtb/
 

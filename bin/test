@@ -2,12 +2,16 @@
 
 set -e
 
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." >/dev/null 2>&1 && pwd )"
+
+TARGET="${1:-debug}"
+OUT_DIR="$DIR/build/$TARGET"
+MUSTACHE4C_DIR="$DIR/vendor/mustache4c"
+
 FLAGS="
 	-define:ODIN_TEST_THREADS=1 \
-	-define:FACILIO_WRAPPER_LIB=../../build/$TARGET/wrapper.a \
-	-define:MUSTACHE4C_LIB=../../../vendor/mustache4c/libmustache4c.a \
 	-collection:lib=lib \
 	-debug \
 "
 
-odin test tests/ $FLAGS
+odin test tests/ $FLAGS -extra-linker-flags:"-L$OUT_DIR -L$MUSTACHE4C_DIR"

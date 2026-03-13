@@ -1,9 +1,7 @@
 package qckchs
 
-import "core:encoding/json"
 import "core:fmt"
 import "core:log"
-import "core:os"
 import "core:strings"
 
 import mustache "lib:mustache4c"
@@ -11,20 +9,8 @@ import mustache "lib:mustache4c"
 import "chess"
 
 
-Asset_Paths :: struct {
-	favicon:       string,
-	css_normalize: string,
-	css_main:      string,
-	js_datastar:   string,
-	js_utils:      string,
-	js_board:      string,
-	js_clock:      string,
-	piece_hash:    string,
-}
-
-g_assets: Asset_Paths
-
 template_strings: map[string]string
+compiled_pages: map[string]mustache.Template
 compiled_partials: map[string]mustache.Template
 compiled_layout: mustache.Template
 
@@ -81,8 +67,7 @@ Index_Page_Data :: struct {
 
 Profile_Page_Data :: struct {
 	using assets: Asset_Paths,
-	on_profile:   bool,
-	public:       bool,
+	edit_profile: bool,
 	name:         string,
 	pk:           string,
 	pk_full:      string,
@@ -111,15 +96,21 @@ build_mini_squares :: proc(board: chess.Board, flipped: bool) -> []Mini_Square_D
 }
 
 build_mini_game_data :: proc(id: Game_Id, game: ^Game, flipped: bool) -> Mini_Game_Data {
-	w := Game_Player_Data{name = game.white_name, has_won = game.result in White_Wins}
-	b := Game_Player_Data{name = game.black_name, has_won = game.result in Black_Wins}
+	w := Game_Player_Data {
+		name    = game.white_name,
+		has_won = game.result in White_Wins,
+	}
+	b := Game_Player_Data {
+		name    = game.black_name,
+		has_won = game.result in Black_Wins,
+	}
 	return Mini_Game_Data {
-		assets  = g_assets,
+		assets = g_assets,
 		game_id = id,
-		code    = game_code(id),
+		code = game_code(id),
 		squares = build_mini_squares(game.board, flipped),
-		white   = flipped ? b : w,
-		black   = flipped ? w : b,
+		white = flipped ? b : w,
+		black = flipped ? w : b,
 	}
 }
 
@@ -172,9 +163,7 @@ board_squares_at_ply :: proc(
 	viewer: chess.Player,
 ) -> [chess.RANKS * chess.FILES]Square_Data {
 	board := initial_board
-	for i in 0 ..< ply {
-		chess.apply_move(&board, moves[i])
-	}
+	for i in 0 ..< ply { chess.apply_move(&board, moves[i]) }
 
 	result: [chess.RANKS * chess.FILES]Square_Data
 	for sq in 0 ..< chess.RANKS * chess.FILES {
@@ -225,43 +214,6 @@ render_board :: proc(game: ^Game, viewer: chess.Player) -> (string, bool) {
 	return render_partial("_board", data)
 }
 
-load_asset_digest :: proc() {
-	data, file_ok := os.read_entire_file("digest.json", global_context.allocator)
-	if !file_ok { return }
-	defer delete(data, global_context.allocator)
-
-	digest: map[string]string
-	uerr := json.unmarshal(data, &digest, allocator = global_context.allocator)
-	if uerr != nil {
-		log.errorf("Failed to parse digest.json")
-		return
-	}
-	defer {
-		for k, v in digest {
-			delete(k, global_context.allocator)
-			delete(v, global_context.allocator)
-		}
-		delete(digest)
-	}
-
-	clone :: proc(s: string) -> string {
-		return strings.clone(s, global_context.allocator)
-	}
-
-	g_assets = Asset_Paths {
-		favicon       = clone(digest["favicon.ico"] or_else ""),
-		css_normalize = clone(digest["styles/modern-normalize.min.css"] or_else ""),
-		css_main      = clone(digest["styles/qckchs.css"] or_else ""),
-		js_datastar   = clone(digest["scripts/datastar.js"] or_else ""),
-		js_utils      = clone(digest["scripts/utils.js"] or_else ""),
-		js_board      = clone(digest["scripts/board.js"] or_else ""),
-		js_clock      = clone(digest["scripts/clock.js"] or_else ""),
-		piece_hash    = clone(digest["_piece_hash"] or_else ""),
-	}
-
-	log.infof("Loaded asset digest: piece_hash=%s", g_assets.piece_hash)
-}
-
 load_templates :: proc() {
 	template_strings = load_template_strings()
 
@@ -276,10 +228,19 @@ load_templates :: proc() {
 	}
 
 	partial_strs := make(map[string]string)
+	compiled_pages = make(map[string]mustache.Template)
 	for key, content in template_strings {
 		if key == "layout" { continue }
-		partial_key := strings.trim_prefix(key, "partials/")
-		partial_strs[partial_key] = content
+		if strings.has_prefix(key, "partials/") {
+			partial_strs[strings.trim_prefix(key, "partials/")] = content
+		} else {
+			t := mustache.compile(content)
+			if t == nil {
+				log.errorf("Failed to compile template: %s", key)
+			} else {
+				compiled_pages[key] = t
+			}
+		}
 	}
 	compiled_partials = mustache.compile_partials(partial_strs)
 	delete(partial_strs)
@@ -287,18 +248,11 @@ load_templates :: proc() {
 	log.infof("Loaded %d templates", len(template_strings))
 }
 
-cleanup_asset_digest :: proc() {
-	delete(g_assets.favicon, global_context.allocator)
-	delete(g_assets.css_normalize, global_context.allocator)
-	delete(g_assets.css_main, global_context.allocator)
-	delete(g_assets.js_datastar, global_context.allocator)
-	delete(g_assets.js_utils, global_context.allocator)
-	delete(g_assets.js_board, global_context.allocator)
-	delete(g_assets.js_clock, global_context.allocator)
-	delete(g_assets.piece_hash, global_context.allocator)
-}
-
 cleanup_templates :: proc() {
+	for _, t in compiled_pages {
+		mustache.release(t)
+	}
+	delete(compiled_pages)
 	mustache.release_partials(compiled_partials)
 	mustache.release(compiled_layout)
 	delete(template_strings)
@@ -321,18 +275,11 @@ render_partial :: proc(partial_name: string, data: any) -> (string, bool) {
 }
 
 render_template :: proc(name: string, data: any) -> (string, bool) {
-	template_str, found := template_strings[name]
+	t, found := compiled_pages[name]
 	if !found {
 		log.errorf("Template not found: %s", name)
 		return "", false
 	}
-
-	t := mustache.compile(template_str)
-	if t == nil {
-		log.errorf("Failed to compile template: %s", name)
-		return "", false
-	}
-	defer mustache.release(t)
 
 	if compiled_layout == nil {
 		log.errorf("Layout template not available")

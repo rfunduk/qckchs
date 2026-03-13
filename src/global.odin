@@ -74,6 +74,7 @@ Game_Result :: enum {
 
 White_Wins :: bit_set[Game_Result]{.White_By_Capture, .White_By_Resignation, .White_By_Timeout}
 Black_Wins :: bit_set[Game_Result]{.Black_By_Capture, .Black_By_Resignation, .Black_By_Timeout}
+Draws :: bit_set[Game_Result]{.Stalemate, .Draw_Repetition, .Draw_No_Progress}
 
 Game :: struct {
 	id:                Game_Id,

@@ -2,9 +2,7 @@ package mustache4c
 
 import "core:c"
 
-MUSTACHE4C_LIB :: #config(MUSTACHE4C_LIB, "libmustache4c.a")
-
-foreign import lib {MUSTACHE4C_LIB}
+foreign import lib "system:mustache4c"
 
 Template :: rawptr
 

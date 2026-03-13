@@ -2,21 +2,21 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <link rel="icon" href="/static/{{favicon}}">
+    <link rel="icon" href="/static/{{favicon_ico}}">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>qckchs</title>
-    <link rel="stylesheet" href="/static/{{css_normalize}}">
-    <link rel="stylesheet" href="/static/{{css_main}}">
+    <link rel="stylesheet" href="/static/{{styles__modern_normalize_min_css}}">
+    <link rel="stylesheet" href="/static/{{styles__qckchs_css}}">
     <script type="importmap">
-      { "imports": { "datastar": "/static/{{js_datastar}}" } }
+      { "imports": { "datastar": "/static/{{scripts__datastar_js}}" } }
     </script>
   </head>
   <body>
     {{{content}}}
-    <script type="module" src="/static/{{js_datastar}}"></script>
-    <script src="/static/{{js_utils}}"></script>
-    <script type="module" src="/static/{{js_board}}"></script>
-    <script type="module" src="/static/{{js_clock}}"></script>
+    <script type="module" src="/static/{{scripts__datastar_js}}"></script>
+    <script src="/static/{{scripts__utils_js}}"></script>
+    <script type="module" src="/static/{{scripts__board_js}}"></script>
+    <script type="module" src="/static/{{scripts__clock_js}}"></script>
     <script>
       setPk(
         localStorage.getItem('qckchs_pk') ||

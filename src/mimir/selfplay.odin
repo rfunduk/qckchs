@@ -5,23 +5,7 @@ import "core:fmt"
 
 import "../chess"
 
-// --- Threefold repetition ---
-
 Position_Hashes :: sa.Small_Array(256, u32)
-
-is_threefold :: proc(hashes: ^Position_Hashes) -> bool {
-	n := sa.len(hashes^)
-	if n < 3 { return false }
-	last := sa.get(hashes^, n - 1)
-	count := 0
-	for i in 0 ..< n {
-		if sa.get(hashes^, i) == last {
-			count += 1
-			if count >= 3 { return true }
-		}
-	}
-	return false
-}
 
 // --- Selfplay position record ---
 
@@ -89,9 +73,7 @@ run_selfplay :: proc(eng: ^Engine, depth: i32, num_games: i32) {
 
 			// Record position hash
 			h := chess.board_hash(board, opp)
-			if sa.len(pos_hashes) >= 256 {
-				sa.pop_front(&pos_hashes)
-			}
+			if sa.len(pos_hashes) >= 256 { sa.pop_front(&pos_hashes) }
 			sa.push_back(&pos_hashes, h)
 
 			// Draw checks (server order: games.odin:223-237)
@@ -100,17 +82,7 @@ run_selfplay :: proc(eng: ^Engine, depth: i32, num_games: i32) {
 				game_over = true
 				break
 			}
-			if is_threefold(&pos_hashes) {
-				result = 0.5
-				game_over = true
-				break
-			}
-			if no_progress >= 50 {
-				result = 0.5
-				game_over = true
-				break
-			}
-			if len(positions) >= 150 {
+			if chess.is_threefold_repetition(sa.slice(&pos_hashes)) || no_progress >= chess.NO_PROGRESS_THRESHOLD {
 				result = 0.5
 				game_over = true
 				break
@@ -137,9 +109,7 @@ run_selfplay :: proc(eng: ^Engine, depth: i32, num_games: i32) {
 			fmt.printfln("%s %s | %d | %s", string(board_str[:]), color_str, pos.score, result_str)
 		}
 		total_positions += len(positions)
-		result_tag: string
-		if result ==
-		   1.0 { result_tag = "white" } else if result == 0.0 { result_tag = "black" } else { result_tag = "draw" }
+		result_tag := result == 1.0 ? "white" : (result == 0.0 ? "black" : "draw")
 		if num_games > 0 {
 			fmt.eprintfln(
 				"  game %d/%d  %s in %d moves  (%d positions total)",

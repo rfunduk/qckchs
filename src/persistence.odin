@@ -9,6 +9,7 @@ import "core:strings"
 import "core:sync/chan"
 import "core:thread"
 import "core:time"
+
 import sqlite "lib:sqlite3"
 
 import "chess"
@@ -455,8 +456,14 @@ db_get_player_games :: proc(key: Player_Key) -> []Mini_Game_Data {
 		result := Game_Result(sqlite.column_int64(query, 4))
 		wn := strings.clone_from_cstring(sqlite.column_text(query, 2))
 		bn := strings.clone_from_cstring(sqlite.column_text(query, 3))
-		w := Game_Player_Data{name = wn, has_won = result in White_Wins}
-		b := Game_Player_Data{name = bn, has_won = result in Black_Wins}
+		w := Game_Player_Data {
+			name    = wn,
+			has_won = result in White_Wins,
+		}
+		b := Game_Player_Data {
+			name    = bn,
+			has_won = result in Black_Wins,
+		}
 		db_game_id := Game_Id(sqlite.column_int64(query, 0))
 		append(
 			&results,
@@ -727,8 +734,6 @@ db_get_player_stats_by_id :: proc(player_id: i64) -> Player_Stats {
 	if !ok { return {} }
 	return db_get_player_stats(pk)
 }
-
-Draws :: bit_set[Game_Result]{.Stalemate, .Draw_Repetition, .Draw_No_Progress}
 
 calc_player_stats :: proc(player_id: i64, result: Game_Result, is_white: bool) -> Player_Stats {
 	stats := db_get_player_stats_by_id(player_id)

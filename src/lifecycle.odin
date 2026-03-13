@@ -55,21 +55,15 @@ lifecycle_tick :: proc "c" (_arg: rawptr) {
 	}
 
 	for id in to_resolve {
-		if id in g.games {
-			publish_players(&g.games[id], id, .Resolve)
-		}
+		if id in g.games { publish_players(&g.games[id], id, .Resolve) }
 	}
 
 	// Publish lobby removes BEFORE freeing games
-	for id in to_free {
-		publish_lobby(id, .Remove)
-	}
+	for id in to_free { publish_lobby(id, .Remove) }
 
 	// Only notify players for abandoned games (cleanup games stay on profile via DB)
 	for id in to_remove_players {
-		if id in g.games {
-			publish_players(&g.games[id], id, .Remove)
-		}
+		if id in g.games { publish_players(&g.games[id], id, .Remove) }
 	}
 
 	for id in to_free {

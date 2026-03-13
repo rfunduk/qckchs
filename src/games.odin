@@ -51,7 +51,7 @@ Game_Signals :: struct {
 }
 
 effective_periods :: proc(clock: Clock, state: State, now: i64) -> (u16, u16) {
-	if state != .Turn_White && state != .Turn_Black {
+	if state not_in PLAYING_STATES {
 		return clock.white_periods, clock.black_periods
 	}
 	elapsed_s := u16((now - clock.last_move_at) / i64(time.Second))
@@ -70,13 +70,13 @@ game_signals :: proc(game: ^Game, now: i64) -> string {
 	wp, bp := effective_periods(game.clock, game.state, now)
 	ply := len(game.moves)
 	sigs := Game_Signals {
-		turn    = turn_string(game.state),
-		state   = state_string(game.state),
-		white   = {name = game.white_name, periods = wp},
-		black   = {name = game.black_name, periods = bp},
-		result  = result_string(game.result),
-		paired  = game.white_key != EMPTY_KEY && game.black_key != EMPTY_KEY,
-		ply     = ply,
+		turn = turn_string(game.state),
+		state = state_string(game.state),
+		white = {name = game.white_name, periods = wp},
+		black = {name = game.black_name, periods = bp},
+		result = result_string(game.result),
+		paired = game.white_key != EMPTY_KEY && game.black_key != EMPTY_KEY,
+		ply = ply,
 		max_ply = ply,
 	}
 	bytes, _ := json.marshal(sigs)
@@ -290,8 +290,10 @@ game_tick :: proc(game: ^Game, now: i64) -> Tick_Result {
 		if now - game.created_at >= timeout {
 			return .Abandoned
 		}
-		if game.white_key != EMPTY_KEY && game.black_key != EMPTY_KEY &&
-		   game.white_last_seen != 0 && game.black_last_seen != 0 &&
+		if game.white_key != EMPTY_KEY &&
+		   game.black_key != EMPTY_KEY &&
+		   game.white_last_seen != 0 &&
+		   game.black_last_seen != 0 &&
 		   now - game.white_last_seen < PRESENCE_THRESHOLD &&
 		   now - game.black_last_seen < PRESENCE_THRESHOLD {
 			game.state = .Turn_White
@@ -417,13 +419,13 @@ game_json :: proc(game: ^Game, viewer: chess.Player, now: i64) -> string {
 	}
 
 	data := Game_JSON {
-		state  = state_string(game.state),
-		turn   = turn_string(game.state),
-		color  = color,
-		board  = board_string(game.board),
-		white  = {periods = wp},
-		black  = {periods = bp},
-		moves  = moves_algebraic(game.initial_board, game.moves[:]),
+		state = state_string(game.state),
+		turn = turn_string(game.state),
+		color = color,
+		board = board_string(game.board),
+		white = {periods = wp},
+		black = {periods = bp},
+		moves = moves_algebraic(game.initial_board, game.moves[:]),
 		result = result_string(game.result),
 	}
 	bytes, _ := json.marshal(data)

@@ -37,6 +37,9 @@ State :: enum {
 	Resolved,
 }
 
+States :: bit_set[State]
+PLAYING_STATES: States = {.Turn_White, .Turn_Black}
+
 Tick_Result :: enum {
 	No_Change,
 	Started,

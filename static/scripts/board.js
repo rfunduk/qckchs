@@ -121,7 +121,7 @@ document.addEventListener('pointerdown', (e) => {
   if (!sq || sq.dataset.piece === '') { return }
 
   const turn = getPath('turn')
-  const color = getPath('color')
+  const color = getPath('_color')
   if (!color || turn !== color) { return }
 
   e.preventDefault()

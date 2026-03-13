@@ -334,7 +334,7 @@ route_player_stream :: proc(sse: fio.SSE, player_code_suffix: string) {
 	udata := pack_sub({kind = .Player, id = u32(player_id)})
 	fio.sse_subscribe(sse, raw_data(channel), u32(len(channel)), udata)
 
-	pk, pk_ok := db_get_player_key(player_id)
+	_, pk_ok := db_get_player_key(player_id)
 	if !pk_ok {
 		log.warnf("Player stream: no player for id %d", player_id)
 		return

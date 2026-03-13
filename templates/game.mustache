@@ -4,31 +4,45 @@
   <div data-init="@post('/stream/{{code}}', { retry: 'always' })"></div>
   <div data-on:make-move__window="@post(`/move/{{code}}/${evt.detail.from}/${evt.detail.to}`)"></div>
   <div data-on:flag__window="@get('/check/{{code}}')"></div>
-  <div data-on-interval__3s="$state === 'waiting' && @post('/ping/{{code}}')"></div>
+  <div data-on-interval__3s="if ($state === 'waiting') @post('/ping/{{code}}')"></div>
 {{/active}}
 
-<div data-signals="{ color: '{{color}}', turn: '{{turn}}', state: '{{state}}', white: { name: '{{white.name}}', code: '{{white.code}}', periods: {{white.periods}} }, black: { name: '{{black.name}}', code: '{{black.code}}', periods: {{black.periods}} }, result: '{{result}}', paired: {{paired}}, statusDismissed: false, ply: {{max_ply}}, maxPly: {{max_ply}} }">
-  <div data-on:keydown__window="evt.key === 'ArrowLeft' && @get(`/replay/{{code}}/${$ply - 1}`)"></div>
-  <div data-on:keydown__window="evt.key === 'ArrowRight' && @get(`/replay/{{code}}/${$ply + 1}`)"></div>
+<div
+  data-signals:turn="'{{turn}}'"
+  data-signals:state="'{{state}}'"
+  data-signals:white="{ name: '{{white.name}}', code: '{{white.code}}', periods: {{white.periods}} }"
+  data-signals:black="{ name: '{{black.name}}', code: '{{black.code}}', periods: {{black.periods}} }"
+  data-signals:result="'{{result}}'"
+  data-signals:paired="{{paired}}"
+  data-signals:ply="{{max_ply}}"
+  data-signals:max-ply="{{max_ply}}"
+  data-signals:_color="'{{color}}'"
+  data-signals:_top-bar="'{{color}}' === 'white' ? $black : $white"
+  data-signals:_bottom-bar="'{{color}}' === 'white' ? $white : $black"
+  data-signals:_status-dismissed="false"
+>
+  <div data-on:keydown__window="if (evt.key === 'ArrowLeft') @get(`/replay/{{code}}/${$ply - 1}`)"></div>
+  <div data-on:keydown__window="if (evt.key === 'ArrowRight') @get(`/replay/{{code}}/${$ply + 1}`)"></div>
+  <div data-on:keydown__window="if (evt.key === 'Escape') $_statusDismissed = true"></div>
   <div class="game-area">
 
     <div
       class="game-status"
       style="display: none;"
       data-class:waiting-for-players="$state == 'waiting'"
-      data-show="($state === 'waiting' || ($state === 'resolved' && $ply === $maxPly)) && !$statusDismissed"
+      data-show="($state === 'waiting' || ($state === 'resolved' && $ply === $maxPly)) && !$_statusDismissed"
     >
       <button
         class="dismiss-btn"
         style="display: none;"
         data-show="$state === 'resolved'"
-        data-on:click__prevent="$statusDismissed = true">&times;</button>
+        data-on:click__prevent="$_statusDismissed = true">&times;</button>
       <div style="display: none;" data-show="$state === 'resolved'" data-text="$result"></div>
       <div style="display: none;" data-show="$state === 'waiting' && !$paired">
         <p>Waiting for opponent...</p>
         <button
           class="button"
-          data-on:click__prevent="navigator.clipboard.writeText(window.location.href); evt.target.innerHTML = 'Copied!'; setTimeout(() => evt.target.innerHTML = 'Copy Link', 2000)">Copy Link</button>
+          data-on:click__prevent="copyToClipboard(evt, window.location.href)">Copy Link</button>
       </div>
       <div style="display: none;" data-show="$state === 'waiting' && $paired">
         <p>Waiting for players...</p>
@@ -37,15 +51,21 @@
 
     <div style="display: none;" data-show="$state !== 'waiting'">
       <div class="player-bar top-bar">
-        <span class="player-time" data-text="($color === 'black' ? $white.periods : $black.periods).toFixed(1)"></span>
-        <a class="player-name" data-attr:href="($color === 'black' ? $white.code : $black.code) ? '/profile/' + ($color === 'black' ? $white.code : $black.code) : false" data-text="$color === 'black' ? ($white.name || 'White') : ($black.name || 'Black')"></a>
+        <span class="player-time" data-text="$_topBar.periods.toFixed(1)"></span>
+        <a
+          class="player-name"
+          data-attr:href="`/profile/${$_topBar.code}`"
+          data-text="$_topBar.name"></a>
       </div>
 
       {{> _board}}
 
       <div class="player-bar bottom-bar">
-        <a class="player-name" data-attr:href="($color === 'black' ? $black.code : $white.code) ? '/profile/' + ($color === 'black' ? $black.code : $white.code) : false" data-text="$color === 'black' ? ($black.name || 'Black') : ($white.name || 'White')"></a>
-        <span class="player-time" data-text="($color === 'black' ? $black.periods : $white.periods).toFixed(1)"></span>
+        <a
+          class="player-name"
+          data-attr:href="`/profile/${$_bottomBar.code}`"
+          data-text="$_bottomBar.name"></a>
+        <span class="player-time" data-text="$_bottomBar.periods.toFixed(1)"></span>
       </div>
     </div>
 

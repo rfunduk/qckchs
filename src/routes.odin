@@ -273,7 +273,7 @@ route_profile :: proc(req: fio.Req, path: string) {
 		games        = player_games[:],
 		player_code  = pc,
 	}
-	if public && pk_ok {
+	if !public && pk_ok {
 		data.pk = fmt.tprintf("%s...", pk_str[:8])
 		data.pk_full = pk_str
 	}

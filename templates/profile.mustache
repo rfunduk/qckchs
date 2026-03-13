@@ -31,7 +31,7 @@
         <label>Player Key</label>
         <div class="pk-display" style="display: none;" data-show="!$recovering">
           <input type="text" value="{{#claimed}}{{pk}}{{/claimed}}{{^claimed}}*************{{/claimed}}" disabled>
-          <button type="button" class="button" data-on:click__prevent="copyToClipboard('{{pk_full}}')">Copy</button>
+          <button type="button" class="button" data-on:click__prevent="copyToClipboard(evt, '{{pk_full}}')">Copy</button>
           <button type="button" class="button" data-on:click__prevent="$recovering = true">Recover</button>
         </div>
         <div class="pk-display" style="display: none;" data-show="$recovering">

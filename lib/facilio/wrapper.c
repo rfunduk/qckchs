@@ -88,6 +88,9 @@ static int try_sse_upgrade(http_s *h, fio_str_info_s path) {
     return 1;
 }
 
+const char *fiow_get_header(http_s *h, const char *name,
+                             unsigned int name_len, unsigned int *out_len);
+
 static void on_request(http_s *h) {
     fio_str_info_s path = fiobj_obj2cstr(h->path);
 
@@ -95,7 +98,19 @@ static void on_request(http_s *h) {
 
     fio_str_info_s method = fiobj_obj2cstr(h->method);
     if (method.len == 4 && memcmp(method.data, "POST", 4) == 0) {
-        http_parse_body(h);
+        // Guard against malformed bodies that can infinite-loop facil.io's parser.
+        unsigned int cl_len;
+        const char *cl_str = fiow_get_header(h, "content-length", 14, &cl_len);
+        if (cl_str && cl_len > 0) {
+            size_t body_len = (size_t)strtoul(cl_str, NULL, 10);
+            if (body_len <= 4096) {
+                http_parse_body(h);
+            } else {
+                log_request(h, 413);
+                http_send_error(h, 413);
+                return;
+            }
+        }
     }
 
     if (request_handler) {
@@ -153,6 +168,17 @@ void fiow_respond(http_s *h, int status, const char *content_type,
 
 void fiow_parse_body(http_s *h) {
     http_parse_body(h);
+}
+
+const char *fiow_get_header(http_s *h, const char *name,
+                             unsigned int name_len, unsigned int *out_len) {
+    FIOBJ key = fiobj_str_new(name, name_len);
+    FIOBJ val = fiobj_hash_get(h->headers, key);
+    fiobj_free(key);
+    if (!val || val == FIOBJ_INVALID) { *out_len = 0; return NULL; }
+    fio_str_info_s s = fiobj_obj2cstr(val);
+    *out_len = (unsigned int)s.len;
+    return s.data;
 }
 
 const char *fiow_get_form_param(http_s *h, const char *name,

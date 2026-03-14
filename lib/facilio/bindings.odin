@@ -41,5 +41,6 @@ foreign wrapper {
 	get_cookie :: proc(req: Req, name: cstring, name_len: u32, out_len: ^u32) -> cstring ---
 	get_method :: proc(req: Req, out_len: ^u32) -> [^]u8 ---
 	get_query :: proc(req: Req, out_len: ^u32) -> [^]u8 ---
+	get_header :: proc(req: Req, name: cstring, name_len: u32, out_len: ^u32) -> cstring ---
 	defer_task :: proc(task: proc "c" (udata1: rawptr, udata2: rawptr), udata1: rawptr, udata2: rawptr) ---
 }

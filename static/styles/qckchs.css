@@ -1,8 +1,17 @@
 body {
+  --hash-w: 0.5px;
+  --hash-mini-w: 0.25px;
   font-family: system-ui, sans-serif;
   width: 502px;
   margin: 2rem auto;
   padding: 0 1rem;
+}
+
+@supports (-moz-appearance: none) {
+  body {
+    --hash-w: 1px;
+    --hash-mini-w: 0.5px;
+  }
 }
 
 * { box-sizing: content-box; }
@@ -172,8 +181,8 @@ body {
   background-color: white;
   background-image: repeating-linear-gradient(
     -45deg,
-    #000 0px, #000 0.5px,
-    transparent 0.5px, transparent 50%
+    #000 0px, #000 var(--hash-w),
+    transparent var(--hash-w), transparent 50%
   );
   background-size: 8px 8px;
   border: 1px solid black;
@@ -236,8 +245,8 @@ body {
     background-color: white;
     background-image: repeating-linear-gradient(
       -45deg,
-      #000 0px, #000 0.5px,
-      transparent 0.5px, transparent 50%
+      #000 0px, #000 var(--hash-w),
+      transparent var(--hash-w), transparent 50%
     );
     background-size: 8px 8px;
   }
@@ -289,8 +298,8 @@ body {
       background-color: white;
       background-image: repeating-linear-gradient(
         -45deg,
-        #000 0px, #000 0.5px,
-        transparent 0.5px, transparent 50%
+        #000 0px, #000 var(--hash-w),
+        transparent var(--hash-w), transparent 50%
       );
       background-size: 8px 8px;
       pointer-events: none;
@@ -425,8 +434,8 @@ body {
       background-color: white;
       background-image: repeating-linear-gradient(
         -45deg,
-        #BBB 0px, #BBB 0.5px,
-        transparent 0.5px, transparent 50%
+        #000 0px, #000 var(--hash-mini-w),
+        transparent var(--hash-mini-w), transparent 50%
       );
       background-size: 3px 3px;
       pointer-events: none;

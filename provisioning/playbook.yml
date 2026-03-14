@@ -185,8 +185,8 @@
       file:
         path: "{{ storage_host_path }}/static"
         state: directory
-        owner: "32767"
-        group: "32767"
+        owner: dokku
+        group: dokku
         mode: "0755"
 
     - name: Mount persistent storage into app container
@@ -264,20 +264,20 @@
 
     - name: Create Dokku plugin directory
       file:
-        path: "{{ dokku_root }}/plugins/available/qckchs-static/triggers"
+        path: "{{ dokku_root }}/plugins/available/qckchs-static"
         state: directory
         mode: "0755"
 
     - name: Deploy plugin.toml
       copy:
-        src: dokku-plugin/plugin.toml
+        src: deploy-static-plugin/plugin.toml
         dest: "{{ dokku_root }}/plugins/available/qckchs-static/plugin.toml"
         mode: "0644"
 
-    - name: Deploy post-deploy trigger
+    - name: Deploy post-release-builder trigger
       copy:
-        src: dokku-plugin/triggers/post-deploy
-        dest: "{{ dokku_root }}/plugins/available/qckchs-static/triggers/post-deploy"
+        src: deploy-static-plugin/post-release-builder
+        dest: "{{ dokku_root }}/plugins/available/qckchs-static/post-release-builder"
         mode: "0755"
 
     - name: Enable qckchs-static plugin

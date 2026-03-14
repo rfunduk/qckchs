@@ -17,10 +17,19 @@
       <div class="form-field">
         <label for="profile-name">Name</label>
         <div class="name-input">
-          <input id="profile-name" type="text" name="name" value="{{name}}" maxlength="20" placeholder="Your Name" {{^claimed}}autofocus{{/claimed}}>
+          <input
+            id="profile-name"
+            type="text"
+            name="name"
+            value="{{name}}"
+            maxlength="20"
+            placeholder="Your Name"
+            {{^claimed}}autofocus{{/claimed}}>
+
           {{^claimed}}
             <button type="submit" class="button">Save & Continue</button>
           {{/claimed}}
+
           {{#claimed}}
             <button type="submit" class="button">Save</button>
           {{/claimed}}

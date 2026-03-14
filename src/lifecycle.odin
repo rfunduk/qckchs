@@ -52,6 +52,7 @@ lifecycle_tick :: proc "c" (_arg: rawptr) {
 	for id in to_publish {
 		code := game_code(id)
 		publish_game(code)
+		publish_lobby(id, .Update)
 	}
 
 	for id in to_resolve {

@@ -163,6 +163,8 @@ route_new_game_bot :: proc(req: fio.Req, path: string) {
 	db_save(game)
 
 	code := game_code(id)
+	publish_lobby(id, .Add)
+
 	color := game.white_key == pk ? "white" : "black"
 	log.infof("Game %s: %s vs %s (creator is %s)", code, suffix, config.name, color)
 	respond_redirect(req, fmt.aprintf("/games/%s", code))

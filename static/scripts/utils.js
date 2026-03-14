@@ -16,8 +16,14 @@ function setPk(pk) {
 	document.cookie = `pk=${pk}; path=/; max-age=${60 * 60 * 24 * 365}; SameSite=Lax`
 }
 
+function toggleTheme() {
+	const dark = document.documentElement.dataset.theme !== 'dark'
+	document.documentElement.dataset.theme = dark ? 'dark' : ''
+	localStorage.setItem('qckchs_theme', dark ? 'dark' : 'light')
+}
+
 function clearPkAndReload() {
 	localStorage.removeItem('qckchs_pk')
 	document.cookie = `pk=; path=/; max-age=0; SameSite=Lax`
-	window.location.href = "/profile"
+	window.location.href = "/"
 }

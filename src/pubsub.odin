@@ -136,17 +136,18 @@ handle_game_update :: proc "c" (sse: fio.SSE, udata: rawptr, msg_ptr: [^]u8, msg
 		lobby_id, ok := strconv.parse_uint(msg[2:])
 		if !ok { return }
 		id := Game_Id(lobby_id)
-		code := game_code(id)
+		game, exists := &g.games[id]
+		code := exists ? game.code : game_code(id)
 		selector := fmt.aprintf("#lobby-%s", code)
 
 		switch op {
 		case 'a':
-			if id not_in g.games { return }
-			html, rok := render_lobby_game(id, &g.games[id])
+			if !exists { return }
+			html, rok := render_lobby_game(id, game)
 			if rok { ds_append_el(sse, "#lobby", html) }
 		case 'u':
-			if id not_in g.games { return }
-			html, rok := render_lobby_game(id, &g.games[id])
+			if !exists { return }
+			html, rok := render_lobby_game(id, game)
 			if rok { ds_patch_el(sse, selector, html) }
 		case 'r':
 			ds_remove_el(sse, selector)
@@ -179,27 +180,25 @@ handle_player_update :: proc(sse: fio.SSE, player_id: i64, msg_ptr: [^]u8, msg_l
 	pk, pk_ok := db_get_player_key(player_id)
 	if !pk_ok { return }
 
-	code := game_code(id)
+	game, exists := &g.games[id]
+	code := exists ? game.code : game_code(id)
 	selector := fmt.aprintf("#lobby-%s", code)
 
 	switch op {
 	case 'a':
-		if id not_in g.games { return }
-		game := &g.games[id]
+		if !exists { return }
 		is_black := pk == game.black_key
 		html, rok := render_mini_game(id, game, is_black)
 		if rok { ds_prepend_el(sse, "#profile-games", html) }
 	case 'u':
-		if id not_in g.games { return }
-		game := &g.games[id]
+		if !exists { return }
 		is_black := pk == game.black_key
 		html, rok := render_mini_game(id, game, is_black)
 		if rok { ds_patch_el(sse, selector, html) }
 	case 'r':
 		ds_remove_el(sse, selector)
 	case 'x':
-		if id not_in g.games { return }
-		game := &g.games[id]
+		if !exists { return }
 		is_black := pk == game.black_key
 		html, rok := render_mini_game(id, game, is_black)
 		if rok { ds_patch_el(sse, selector, html) }

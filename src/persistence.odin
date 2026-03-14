@@ -469,7 +469,7 @@ db_get_player_games :: proc(key: Player_Key) -> []Mini_Game_Data {
 			&results,
 			Mini_Game_Data {
 				game_id = db_game_id,
-				code = game_code(db_game_id),
+				code = game_code(db_game_id), // finished games not in g.games
 				squares = build_mini_squares(board, is_black),
 				white = is_black ? b : w,
 				black = is_black ? w : b,
@@ -568,6 +568,7 @@ db_load_finished_game :: proc(id: Game_Id) -> (Game, bool) {
 
 	return Game {
 			id = id,
+			code = game_code(id),
 			created_at = created_at,
 			board = board,
 			initial_board = initial_board,
@@ -677,6 +678,7 @@ db_load_games :: proc() {
 
 		g.games[id] = Game {
 			id             = id,
+			code           = game_code(id, global_context.allocator),
 			created_at     = created_at,
 			board          = board,
 			initial_board  = initial_board,

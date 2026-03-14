@@ -65,6 +65,12 @@ Index_Page_Data :: struct {
 	games:        []Mini_Game_Data,
 }
 
+Logout_Page_Data :: struct {
+	using assets: Asset_Paths,
+	pk:           string,
+	pk_full:      string,
+}
+
 Profile_Page_Data :: struct {
 	using assets: Asset_Paths,
 	edit_profile: bool,
@@ -107,7 +113,7 @@ build_mini_game_data :: proc(id: Game_Id, game: ^Game, flipped: bool) -> Mini_Ga
 	return Mini_Game_Data {
 		assets = g_assets,
 		game_id = id,
-		code = game_code(id),
+		code = game.code,
 		squares = build_mini_squares(game.board, flipped),
 		white = flipped ? b : w,
 		black = flipped ? w : b,

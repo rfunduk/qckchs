@@ -71,7 +71,7 @@ make_waiting_game_black_creator :: proc() -> src.Game {
 test_game_init_assigns_one_key :: proc(test: ^t.T) {
 	pk := make_key('W')
 	id := src.game_init(pk, T0)
-	game := src.g.games[id]
+	game := &src.g.games[id]
 	has_white := game.white_key == pk
 	has_black := game.black_key == pk
 	t.expect(test, has_white || has_black, "pk must be assigned to white or black")
@@ -81,7 +81,7 @@ test_game_init_assigns_one_key :: proc(test: ^t.T) {
 	t.expect_value(test, game.state, src.State.Waiting)
 	t.expect_value(test, game.current_player, chess.Player.None)
 	t.expect_value(test, game.created_at, T0)
-	delete(game.moves)
+	src.game_free(game)
 }
 
 // --- game_move ---

@@ -4,6 +4,7 @@ import sa "core:container/small_array"
 import "core:encoding/json"
 import "core:log"
 import "core:math/rand"
+import "core:strings"
 import "core:time"
 
 import "chess"
@@ -117,6 +118,67 @@ state_string :: proc(state: State) -> string {
 }
 //odinfmt: enable
 
+// --- Game creation ---
+
+parse_difficulty :: proc(s: string) -> (Difficulty, bool) {
+	switch s {
+	case "easy":
+		return .Easy, true
+	case "medium":
+		return .Medium, true
+	case "hard":
+		return .Hard, true
+	case:
+		return .None, false
+	}
+}
+
+create_game :: proc(pk: Player_Key) -> Game_Id {
+	now := time.to_unix_nanoseconds(time.now())
+	id := game_init(pk, now)
+
+	game := &g.games[id]
+	is_white := game.white_key == pk
+	color := is_white ? "white" : "black"
+	creator_key := is_white ? &game.white_key : &game.black_key
+	log.infof("Game %d: creator is %s (%.8s...)", id, color, string(creator_key[:8]))
+
+	return id
+}
+
+create_bot_game :: proc(pk: Player_Key, difficulty: Difficulty) -> Game_Id {
+	now := time.to_unix_nanoseconds(time.now())
+	id := game_init(pk, now)
+	game := &g.games[id]
+	game.difficulty = difficulty
+
+	config := bot_for_difficulty(difficulty)
+
+	if game.white_key == EMPTY_KEY {
+		game.white_key = config.pk
+		game.white_name = strings.clone(config.name, global_context.allocator)
+	} else {
+		game.black_key = config.pk
+		game.black_name = strings.clone(config.name, global_context.allocator)
+	}
+
+	game.current_player = .White
+	game.state = .Turn_White
+	game.clock.last_move_at = now
+	record_position(game)
+
+	game.bot = spawn_bot(id, difficulty)
+	if config.pk == game.white_key { notify_bot(game) }
+
+	db_save(game)
+	publish_lobby(id, .Add)
+
+	color := game.white_key == pk ? "white" : "black"
+	log.infof("Game %s: %v vs %s (creator is %s)", game.code, difficulty, config.name, color)
+
+	return id
+}
+
 // --- Game logic ---
 
 make_move :: proc(game: ^Game, from: u8, to: u8) -> (chess.Move, bool) {
@@ -146,16 +208,15 @@ game_init :: proc(pk: Player_Key, now: i64) -> Game_Id {
 	g.last_id += 1
 	id := g.last_id
 
+	// creator slightly more likely to get white, because i said so
 	white_key, black_key: Player_Key
-	if rand.int_max(2) == 0 {
-		white_key = pk
-	} else {
-		black_key = pk
-	}
+	if rand.float64() >= 0.4 { white_key = pk } else { black_key = pk }
 
 	board := chess.random_board()
+	code := game_code(id, global_context.allocator)
 	g.games[id] = {
 		id             = id,
+		code           = code,
 		created_at     = now,
 		board          = board,
 		initial_board  = board,
@@ -173,6 +234,7 @@ game_init :: proc(pk: Player_Key, now: i64) -> Game_Id {
 
 game_free :: proc(game: ^Game) {
 	kill_bot(game)
+	delete(game.code, global_context.allocator)
 	delete(game.moves)
 	delete(game.white_name, global_context.allocator)
 	delete(game.black_name, global_context.allocator)

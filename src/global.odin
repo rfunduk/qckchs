@@ -78,6 +78,7 @@ Draws :: bit_set[Game_Result]{.Stalemate, .Draw_Repetition, .Draw_No_Progress}
 
 Game :: struct {
 	id:                Game_Id,
+	code:              string,
 	created_at:        i64,
 	board:             chess.Board,
 	initial_board:     chess.Board,

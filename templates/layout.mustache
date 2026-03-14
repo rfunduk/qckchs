@@ -10,6 +10,7 @@
     <script type="importmap">
       { "imports": { "datastar": "/static/{{scripts__datastar_js}}" } }
     </script>
+    <script>if (localStorage.getItem('qckchs_theme') === 'dark') document.documentElement.dataset.theme = 'dark'</script>
   </head>
   <body>
     {{{content}}}

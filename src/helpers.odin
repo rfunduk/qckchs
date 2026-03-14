@@ -217,7 +217,7 @@ CODE_OFFSETS := [Code_Kind]u32 {
 }
 //odinfmt: enable
 
-encode_id :: proc(id: u32, kind: Code_Kind) -> string {
+encode_id :: proc(id: u32, kind: Code_Kind, allocator := context.allocator) -> string {
 	val := u32be(id + CODE_OFFSETS[kind])
 	bytes := transmute([4]u8)val
 
@@ -225,7 +225,7 @@ encode_id :: proc(id: u32, kind: Code_Kind) -> string {
 	for start < 4 && bytes[start] == 0 { start += 1 }
 	if start == 4 { start = 3 }
 
-	encoded := base32.encode(bytes[start:], LOWERCASE_ENC_TABLE)
+	encoded := base32.encode(bytes[start:], LOWERCASE_ENC_TABLE, allocator)
 	return strings.trim_right(encoded, "=")
 }
 
@@ -256,8 +256,8 @@ decode_id :: proc(code: string, kind: Code_Kind) -> (u32, bool) {
 	return val - offset, true
 }
 
-game_code :: proc(id: Game_Id) -> string {
-	return encode_id(u32(id), .Game)
+game_code :: proc(id: Game_Id, allocator := context.allocator) -> string {
+	return encode_id(u32(id), .Game, allocator)
 }
 
 game_id_from_code :: proc(code: string) -> (Game_Id, bool) {
@@ -265,8 +265,8 @@ game_id_from_code :: proc(code: string) -> (Game_Id, bool) {
 	return Game_Id(val), ok
 }
 
-player_code :: proc(id: i64) -> string {
-	return encode_id(u32(id), .Player)
+player_code :: proc(id: i64, allocator := context.allocator) -> string {
+	return encode_id(u32(id), .Player, allocator)
 }
 
 player_id_from_code :: proc(code: string) -> (i64, bool) {

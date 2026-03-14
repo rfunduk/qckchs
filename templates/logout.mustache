@@ -1,0 +1,20 @@
+{{> _header}}
+
+<div class="logout-page">
+  <h2>Log out?</h2>
+
+  <div class="notice">
+    Your player key is needed to access this account.
+    If you log out without saving it, you will lose access forever.
+  </div>
+
+  <div class="pk-field">
+    <label>Player Key</label>
+    <div class="pk-display">
+      <input type="text" value="{{pk}}" disabled>
+      <button type="button" class="button" onclick="copyToClipboard(event, '{{pk_full}}')">Copy</button>
+    </div>
+  </div>
+
+  <button class="button logout-btn" onclick="clearPkAndReload()">Log out</button>
+</div>

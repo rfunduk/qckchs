@@ -286,16 +286,14 @@ bot_move_callback :: proc "c" (udata1: rawptr, udata2: rawptr) {
 	now := time.to_unix_nanoseconds(time.now())
 	move, move_result := game_move(game, pk, from, to, now)
 
-	code := game_code(game_id)
-
 	switch move_result {
 	case .Invalid_State, .Wrong_Player, .Illegal_Move, .Timed_Out:
-		log.warnf("Game %s: bot move rejected (%v)", code, move_result)
+		log.warnf("Game %s: bot move rejected (%v)", game.code, move_result)
 		return
 	case .Ok, .King_Captured, .Stalemate:
 		log.infof(
 			"Game %s: bot %v %d -> %d%s",
-			code,
+			game.code,
 			move.piece,
 			move.from,
 			move.to,
@@ -303,7 +301,7 @@ bot_move_callback :: proc "c" (udata1: rawptr, udata2: rawptr) {
 		)
 	}
 
-	publish_game(code)
+	publish_game(game.code)
 	publish_lobby(game_id, .Update)
 	if move_result == .King_Captured || move_result == .Stalemate {
 		publish_players(game, game_id, .Resolve)

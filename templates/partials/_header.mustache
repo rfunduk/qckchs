@@ -1,7 +1,8 @@
 <header id="site-header"{{#color}} class="{{color}}-player"{{/color}}>
   <a id="logo" href="/"><h1>qckchs</h1></a>
   <div>
-    <a class="button header-link {{#edit_profile}}current{{/edit_profile}}" href="/profile">profile</a>
-    <a class="button header-link" data-on:click="clearPkAndReload()">logout</a>
+    <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode"></button>
+    <a class="button header-link {{#edit_profile}}current{{/edit_profile}}" href="/profile">&#9812;</a>
+    <a class="button header-link" href="/logout">&#10132;</a>
   </div>
 </header>

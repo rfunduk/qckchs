@@ -33,6 +33,7 @@ Op_Save_Game :: struct {
 	created_at:     i64,
 	last_move_at:   i64,
 	difficulty:     Difficulty,
+	public:         bool,
 }
 
 Op_Delete_Game :: struct {
@@ -86,8 +87,10 @@ db_init :: proc() {
 		db_conn,
 		`
 			CREATE TABLE IF NOT EXISTS players (
-				id  INTEGER PRIMARY KEY AUTOINCREMENT,
-				key BLOB NOT NULL UNIQUE
+				id      INTEGER PRIMARY KEY AUTOINCREMENT,
+				key     BLOB NOT NULL UNIQUE,
+				name    TEXT NOT NULL DEFAULT '',
+				claimed INTEGER NOT NULL DEFAULT 0
 			)
 		`,
 	)
@@ -109,14 +112,14 @@ db_init :: proc() {
 				created_at     INTEGER NOT NULL,
 				last_move_at   INTEGER NOT NULL DEFAULT 0,
 				updated_at     INTEGER NOT NULL,
-				difficulty     INTEGER NOT NULL DEFAULT 0
+				difficulty     INTEGER NOT NULL DEFAULT 0,
+				public         INTEGER NOT NULL DEFAULT 0
 			)
 		`,
 	)
-	// Migrations
-	sqlite.sql_exec(db_conn, `ALTER TABLE games ADD COLUMN difficulty INTEGER NOT NULL DEFAULT 0`)
-	sqlite.sql_exec(db_conn, `ALTER TABLE players ADD COLUMN name TEXT NOT NULL DEFAULT ''`)
-	sqlite.sql_exec(db_conn, `ALTER TABLE players ADD COLUMN claimed INTEGER NOT NULL DEFAULT 0`)
+
+	// tmp migrations
+	sqlite.sql_exec(db_conn, `ALTER TABLE games ADD COLUMN public INTEGER NOT NULL DEFAULT 0`)
 
 	db_load_games()
 
@@ -124,9 +127,7 @@ db_init :: proc() {
 		max_id: i64,
 	}
 	row, ok := sqlite.sql_one(db_conn, "SELECT COALESCE(MAX(id), 0) FROM games", Max_Row)
-	if ok && Game_Id(row.max_id) > g.last_id {
-		g.last_id = Game_Id(row.max_id)
-	}
+	if ok && Game_Id(row.max_id) > g.last_id { g.last_id = Game_Id(row.max_id) }
 
 	log.infof("DB: loaded %d in-progress games, last_id=%d", len(g.games), g.last_id)
 
@@ -142,10 +143,7 @@ db_init :: proc() {
 
 	err: mem.Allocator_Error
 	db_chan, err = chan.create(chan.Chan(DB_Op), CHANNEL_CAPACITY, global_context.allocator)
-	if err != nil {
-		log.errorf("Failed to create DB channel: %v", err)
-		return
-	}
+	if err != nil { log.errorf("Failed to create DB channel: %v", err);return }
 
 	// Don't pass global_context — the DB worker must NOT use the tracking
 	// allocator (not thread-safe). It inherits default heap allocator and
@@ -199,6 +197,7 @@ db_save :: proc(game: ^Game) {
 		created_at     = game.created_at,
 		last_move_at   = game.clock.last_move_at,
 		difficulty     = game.difficulty,
+		public         = game.public,
 	}
 
 	chan.send(db_chan, DB_Op(op))
@@ -226,16 +225,12 @@ db_process_op :: proc(op: DB_Op) {
 	switch v in op {
 	case Op_Save_Game:
 		db_save_game(v)
-		if len(v.moves) > 0 {
-			delete(v.moves, runtime.default_allocator())
-		}
+		if len(v.moves) > 0 { delete(v.moves, runtime.default_allocator()) }
 	case Op_Delete_Game:
 		db_delete_game(v.id)
 	case Op_Claim_Player:
 		db_claim_player_exec(v)
-		if len(v.name) > 0 {
-			delete(v.name, runtime.default_allocator())
-		}
+		if len(v.name) > 0 { delete(v.name, runtime.default_allocator()) }
 	}
 }
 
@@ -256,8 +251,10 @@ db_claim_player :: proc(key: Player_Key, name: string) {
 db_claim_player_exec :: proc(op: Op_Claim_Player) {
 	sqlite.sql_exec(
 		db_conn,
-		`INSERT INTO players (key, name, claimed) VALUES (?, ?, 1)
-		 ON CONFLICT(key) DO UPDATE SET name = excluded.name, claimed = 1`,
+		`
+			INSERT INTO players (key, name, claimed) VALUES (?, ?, 1)
+			ON CONFLICT(key) DO UPDATE SET name = excluded.name, claimed = 1
+		`,
 		op.key,
 		op.name,
 	)
@@ -330,16 +327,16 @@ db_get_player_stats :: proc(key: Player_Key) -> Player_Stats {
 		db_read,
 		fmt.tprintf(
 			`
-			SELECT
-				COUNT(*) as played,
-				COALESCE(SUM(CASE WHEN (g.white_id=p.id AND g.result IN %s)
-					OR (g.black_id=p.id AND g.result IN %s) THEN 1 ELSE 0 END), 0) as wins,
-				COALESCE(SUM(CASE WHEN (g.white_id=p.id AND g.result IN %s)
-					OR (g.black_id=p.id AND g.result IN %s) THEN 1 ELSE 0 END), 0) as losses,
-				COALESCE(SUM(CASE WHEN g.result IN %s THEN 1 ELSE 0 END), 0) as draws
-			FROM games g JOIN players p ON (g.white_id=p.id OR g.black_id=p.id)
-			WHERE p.key = ? AND g.result != 0
-		`,
+				SELECT
+					COUNT(*) as played,
+					COALESCE(SUM(CASE WHEN (g.white_id=p.id AND g.result IN %s)
+						OR (g.black_id=p.id AND g.result IN %s) THEN 1 ELSE 0 END), 0) as wins,
+					COALESCE(SUM(CASE WHEN (g.white_id=p.id AND g.result IN %s)
+						OR (g.black_id=p.id AND g.result IN %s) THEN 1 ELSE 0 END), 0) as losses,
+					COALESCE(SUM(CASE WHEN g.result IN %s THEN 1 ELSE 0 END), 0) as draws
+				FROM games g JOIN players p ON (g.white_id=p.id OR g.black_id=p.id)
+				WHERE p.key = ? AND g.result != 0
+			`,
 			w,
 			b,
 			b,
@@ -384,9 +381,9 @@ db_save_game :: proc(op: Op_Save_Game) {
 			INSERT OR REPLACE INTO games (
 				id, white_id, black_id, result, state, current_player,
 				board, initial_board, moves, white_periods, black_periods,
-				created_at, last_move_at, updated_at, difficulty
+				created_at, last_move_at, updated_at, difficulty, public
 			)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		`,
 		i64(op.id),
 		white_id_any,
@@ -403,6 +400,7 @@ db_save_game :: proc(op: Op_Save_Game) {
 		op.last_move_at,
 		now,
 		i64(op.difficulty),
+		i64(op.public ? 1 : 0),
 	)
 	if status != nil {
 		log.errorf("DB: failed to save game %d: %v", op.id, sqlite.status_explain(status))
@@ -469,10 +467,10 @@ db_get_player_games :: proc(key: Player_Key) -> []Mini_Game_Data {
 			&results,
 			Mini_Game_Data {
 				game_id = db_game_id,
-				code = game_code(db_game_id), // finished games not in g.games
+				code    = game_code(db_game_id), // finished games not in g.games
 				squares = build_mini_squares(board, is_black),
-				white = is_black ? b : w,
-				black = is_black ? w : b,
+				white   = is_black ? b : w,
+				black   = is_black ? w : b,
 			},
 		)
 	}
@@ -566,23 +564,24 @@ db_load_finished_game :: proc(id: Game_Id) -> (Game, bool) {
 	white_name := strings.clone_from_cstring(sqlite.column_text(query, 13))
 	black_name := strings.clone_from_cstring(sqlite.column_text(query, 14))
 
-	return Game {
-			id = id,
-			code = game_code(id),
-			created_at = created_at,
-			board = board,
-			initial_board = initial_board,
-			current_player = current_player,
-			clock = {white_periods, black_periods, last_move_at},
-			state = state,
-			result = result,
-			moves = moves,
-			white_key = white_key,
-			black_key = black_key,
-			white_name = white_name,
-			black_name = black_name,
-		},
-		true
+	game := Game {
+		id             = id,
+		code           = game_code(id),
+		created_at     = created_at,
+		board          = board,
+		initial_board  = initial_board,
+		current_player = current_player,
+		clock          = {white_periods, black_periods, last_move_at},
+		state          = state,
+		result         = result,
+		moves          = moves,
+		white_key      = white_key,
+		black_key      = black_key,
+		white_name     = white_name,
+		black_name     = black_name,
+	}
+
+	return game, true
 }
 
 db_load_games :: proc() {
@@ -593,7 +592,7 @@ db_load_games :: proc() {
 				g.id, g.result, g.state, g.current_player,
 				g.board, g.initial_board, g.moves,
 				g.white_periods, g.black_periods, g.created_at, g.last_move_at,
-				wp.key, bp.key, g.difficulty, wp.name, bp.name
+				wp.key, bp.key, g.difficulty, wp.name, bp.name, g.public
 			FROM games g
 			LEFT JOIN players wp ON g.white_id = wp.id
 			LEFT JOIN players bp ON g.black_id = bp.id
@@ -675,6 +674,7 @@ db_load_games :: proc() {
 		difficulty := Difficulty(sqlite.column_int64(query, 13))
 		white_name := strings.clone_from_cstring(sqlite.column_text(query, 14), global_context.allocator)
 		black_name := strings.clone_from_cstring(sqlite.column_text(query, 15), global_context.allocator)
+		is_public := sqlite.column_int64(query, 16) != 0
 
 		g.games[id] = Game {
 			id             = id,
@@ -692,6 +692,7 @@ db_load_games :: proc() {
 			difficulty     = difficulty,
 			white_name     = white_name,
 			black_name     = black_name,
+			public         = is_public,
 		}
 
 		log.debugf(

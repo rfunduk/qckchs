@@ -17,6 +17,12 @@
   </div>
 </div>
 
+<div id="joinable">
+  {{#joinable}}
+    {{> _miniboard}}
+  {{/joinable}}
+</div>
+
 <div id="lobby" data-init="@post('/stream/', { retry: 'always' })">
   {{#games}}
     {{> _miniboard}}

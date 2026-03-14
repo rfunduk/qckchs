@@ -409,7 +409,7 @@ test_insufficient_material_k_vs_k :: proc(test: ^t.T) {
 	board := empty_board()
 	board[0] = .WK
 	board[29] = .BK
-	t.expect(test, chess.is_insufficient_material(board))
+	t.expect(test, chess.is_insufficient_material(board, .White))
 }
 
 @(test)
@@ -418,7 +418,7 @@ test_insufficient_material_kn_vs_k :: proc(test: ^t.T) {
 	board[0] = .WK
 	board[12] = .WN
 	board[29] = .BK
-	t.expect(test, chess.is_insufficient_material(board))
+	t.expect(test, chess.is_insufficient_material(board, .Black))
 }
 
 @(test)
@@ -427,7 +427,7 @@ test_insufficient_material_kb_vs_k :: proc(test: ^t.T) {
 	board[0] = .WK
 	board[12] = .WB
 	board[29] = .BK
-	t.expect(test, chess.is_insufficient_material(board))
+	t.expect(test, chess.is_insufficient_material(board, .Black))
 }
 
 @(test)
@@ -437,7 +437,17 @@ test_insufficient_material_kb_vs_kb :: proc(test: ^t.T) {
 	board[29] = .BK
 	board[12] = .WB
 	board[17] = .BB
-	t.expect(test, chess.is_insufficient_material(board))
+	t.expect(test, chess.is_insufficient_material(board, .White))
+}
+
+@(test)
+test_not_insufficient_when_king_capturable :: proc(test: ^t.T) {
+	// WN on 17 attacks BK on 28 — white can capture the king
+	board := empty_board()
+	board[0] = .WK
+	board[17] = .WN
+	board[28] = .BK
+	t.expect(test, !chess.is_insufficient_material(board, .White))
 }
 
 @(test)
@@ -446,7 +456,7 @@ test_sufficient_material_with_rook :: proc(test: ^t.T) {
 	board[0] = .WK
 	board[12] = .WR
 	board[29] = .BK
-	t.expect(test, !chess.is_insufficient_material(board))
+	t.expect(test, !chess.is_insufficient_material(board, .Black))
 }
 
 @(test)
@@ -455,7 +465,7 @@ test_sufficient_material_with_queen :: proc(test: ^t.T) {
 	board[0] = .WK
 	board[29] = .BK
 	board[12] = .BQ
-	t.expect(test, !chess.is_insufficient_material(board))
+	t.expect(test, !chess.is_insufficient_material(board, .White))
 }
 
 @(test)
@@ -464,5 +474,5 @@ test_sufficient_material_with_pawn :: proc(test: ^t.T) {
 	board[0] = .WK
 	board[29] = .BK
 	board[12] = .WP
-	t.expect(test, !chess.is_insufficient_material(board))
+	t.expect(test, !chess.is_insufficient_material(board, .Black))
 }

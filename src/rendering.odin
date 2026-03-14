@@ -8,7 +8,6 @@ import mustache "lib:mustache4c"
 
 import "chess"
 
-
 template_strings: map[string]string
 compiled_pages: map[string]mustache.Template
 compiled_partials: map[string]mustache.Template
@@ -19,8 +18,7 @@ Square_Data :: struct {
 	index:     u8,
 	has_piece: bool,
 	targets:   string,
-	hl_from:   bool,
-	hl_to:     bool,
+	hl:        string,
 }
 
 Game_Player_Data :: struct {
@@ -44,6 +42,8 @@ Game_Page_Data :: struct {
 	color:        string,
 	max_ply:      int,
 	paired:       int,
+	public:       int,
+	join_prompt:  bool,
 }
 
 Mini_Square_Data :: struct {
@@ -58,10 +58,12 @@ Mini_Game_Data :: struct {
 	squares:      []Mini_Square_Data,
 	white:        Game_Player_Data,
 	black:        Game_Player_Data,
+	joinable:     bool,
 }
 
 Index_Page_Data :: struct {
 	using assets: Asset_Paths,
+	joinable:     []Mini_Game_Data,
 	games:        []Mini_Game_Data,
 }
 
@@ -129,6 +131,12 @@ render_lobby_game :: proc(id: Game_Id, game: ^Game) -> (string, bool) {
 	return render_mini_game(id, game, false)
 }
 
+render_joinable_game :: proc(id: Game_Id, game: ^Game) -> (string, bool) {
+	data := build_mini_game_data(id, game, false)
+	data.joinable = true
+	return render_partial("_miniboard", data)
+}
+
 board_squares :: proc(board: chess.Board, viewer: chess.Player) -> [chess.RANKS * chess.FILES]Square_Data {
 	result: [chess.RANKS * chess.FILES]Square_Data
 
@@ -179,19 +187,13 @@ board_squares_at_ply :: proc(
 			piece     = piece,
 			index     = board_idx,
 			has_piece = piece != .X,
+			hl        = "none",
 		}
-	}
 
-	if ply > 0 {
-		move := moves[ply - 1]
-		for sq in 0 ..< chess.RANKS * chess.FILES {
-			board_idx := viewer == .Black ? u8(chess.RANKS * chess.FILES - 1 - sq) : u8(sq)
-			if board_idx == move.from {
-				result[sq].hl_from = true
-			}
-			if board_idx == move.to {
-				result[sq].hl_to = true
-			}
+		if ply > 0 {
+			move := moves[ply - 1]
+			if board_idx == move.from { result[sq].hl = "from" }
+			if board_idx == move.to { result[sq].hl = "to" }
 		}
 	}
 
@@ -224,14 +226,9 @@ load_templates :: proc() {
 	template_strings = load_template_strings()
 
 	layout_str, has_layout := template_strings["layout"]
-	if !has_layout {
-		log.errorf("No layout template found")
-		return
-	}
+	if !has_layout { log.errorf("No layout template found");return }
 	compiled_layout = mustache.compile(layout_str)
-	if compiled_layout == nil {
-		log.errorf("Failed to compile layout template")
-	}
+	if compiled_layout == nil { log.errorf("Failed to compile layout template") }
 
 	partial_strs := make(map[string]string)
 	compiled_pages = make(map[string]mustache.Template)
@@ -255,9 +252,7 @@ load_templates :: proc() {
 }
 
 cleanup_templates :: proc() {
-	for _, t in compiled_pages {
-		mustache.release(t)
-	}
+	for _, t in compiled_pages { mustache.release(t) }
 	delete(compiled_pages)
 	mustache.release_partials(compiled_partials)
 	mustache.release(compiled_layout)

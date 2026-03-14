@@ -1,5 +1,11 @@
 {{> _header}}
 
+<div style="display:none;" data-init="@post('/stream/p/{{player_code}}', { retry: 'always' })"></div>
+
+{{#edit_profile}}
+  <div style="display: none;" data-init="history.replaceState(null, null, '/profile')"></div>
+{{/edit_profile}}
+
 <div class="profile-page">
   {{^edit_profile}}
     <h2>{{name}}</h2>
@@ -56,23 +62,21 @@
          data-signals="{ played: {{played}}, wins: {{wins}}, losses: {{losses}}, draws: {{draws}} }">
       <div>
         <label>played</label>
-        <strong data-text="$played"></strong>
+        <strong data-text="$played">{{played}}</strong>
       </div>
       <div>
         <label>wins</label>
-        <strong data-text="$wins"></strong>
+        <strong data-text="$wins">{{wins}}</strong>
       </div>
       <div>
         <label>losses</label>
-        <strong data-text="$losses"></strong>
+        <strong data-text="$losses">{{losses}}</strong>
       </div>
       <div>
         <label>draws</label>
-        <strong data-text="$draws"></strong>
+        <strong data-text="$draws">{{draws}}</strong>
       </div>
     </div>
-
-    <div style="display:none;" data-init="@post('/stream/p/{{player_code}}', { retry: 'always' })"> </div>
 
     <div id="profile-games" class="profile-games">
       {{#games}}
@@ -81,9 +85,3 @@
     </div>
   {{/claimed}}
 </div>
-
-{{#edit_profile}}
-  <script>
-    history.replaceState(null, null, '/profile')
-  </script>
-{{/edit_profile}}

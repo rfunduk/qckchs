@@ -37,6 +37,8 @@ handle_request :: proc "c" (req: fio.Req) {
 		route_new_game(req, path)
 	} else if strings.has_prefix(path, "/games/") {
 		route_game(req)
+	} else if strings.has_prefix(path, "/make-public/") {
+		route_make_public(req)
 	} else if strings.has_prefix(path, "/move/") {
 		route_move(req)
 	} else if strings.has_prefix(path, "/replay/") {
@@ -78,14 +80,21 @@ route_static :: proc(req: fio.Req, path: string) {
 }
 
 route_index :: proc(req: fio.Req) {
+	joinable := make([dynamic]Mini_Game_Data)
 	games := make([dynamic]Mini_Game_Data)
 	for id, &game in g.games {
-		if game.state == .Waiting { continue }
-		append(&games, build_mini_game_data(id, &game, false))
+		if game.public && game.state == .Waiting {
+			mgd := build_mini_game_data(id, &game, false)
+			mgd.joinable = true
+			append(&joinable, mgd)
+		} else if game.state != .Waiting {
+			append(&games, build_mini_game_data(id, &game, false))
+		}
 	}
 	data := Index_Page_Data {
-		assets = g_assets,
-		games  = games[:],
+		assets   = g_assets,
+		joinable = joinable[:],
+		games    = games[:],
 	}
 	html, ok := render_template("index", data)
 	if !ok { respond_404(req); return }
@@ -285,6 +294,16 @@ route_game :: proc(req: fio.Req) {
 
 	viewer := viewer_from_cookie(req, game)
 
+	// Join flow for public waiting games
+	join_prompt := false
+	if active && game.public && game.state == .Waiting && viewer == .None {
+		query := get_query(req)
+		if get_query_param(query, "join") != "1" {
+			join_prompt = true
+			active = false // Don't open SSE stream
+		}
+	}
+
 	now := time.to_unix_nanoseconds(time.now())
 	wp, bp := effective_periods(game.clock, game.state, now)
 
@@ -320,9 +339,34 @@ route_game :: proc(req: fio.Req) {
 		color = viewer == .Black ? "black" : viewer == .White ? "white" : "spectator",
 		max_ply = max_ply,
 		paired = paired ? 1 : 0,
+		public = game.public ? 1 : 0,
+		join_prompt = join_prompt,
 	}
 	html, _ := render_template("game", data)
 	respond_html(req, html)
+}
+
+route_make_public :: proc(req: fio.Req) {
+	p, ok := path_params(get_path(req), "/make-public/", 1)
+	if !ok { respond_404(req); return }
+	code := p[0]
+
+	id, id_ok := game_id_from_code(code)
+	if !id_ok || id not_in g.games { respond_404(req); return }
+
+	pk, pk_ok := get_cookie_pk(req)
+	if !pk_ok { respond_400(req); return }
+
+	game := &g.games[id]
+	if game.state != .Waiting { respond_400(req); return }
+	if pk != game.white_key && pk != game.black_key { respond_400(req); return }
+
+	game.public = true
+	db_save(game)
+	publish_lobby(id, .Add)
+	publish_game(code)
+
+	fio.respond(req, 204, "text/plain", nil, 0, "no-store")
 }
 
 route_move :: proc(req: fio.Req) {

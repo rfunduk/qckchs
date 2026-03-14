@@ -12,9 +12,9 @@
     <label>Player Key</label>
     <div class="pk-display">
       <input type="text" value="{{pk}}" disabled>
-      <button type="button" class="button" onclick="copyToClipboard(event, '{{pk_full}}')">Copy</button>
+      <button type="button" class="button" data-on:click__prevent="copyToClipboard(event, '{{pk_full}}')">Copy</button>
     </div>
   </div>
 
-  <button class="button logout-btn" onclick="clearPkAndReload()">Log out</button>
+  <button class="button logout-btn" data-on:click__prevent="clearPkAndReload()">Log out</button>
 </div>

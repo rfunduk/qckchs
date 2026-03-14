@@ -50,8 +50,15 @@ lifecycle_tick :: proc "c" (_arg: rawptr) {
 	}
 
 	for id in to_publish {
-		publish_game(g.games[id].code)
-		publish_lobby(id, .Update)
+		game := &g.games[id]
+		publish_game(game.code)
+		if game.public && game.state in PLAYING_STATES {
+			// Transition from joinable to active in lobby
+			publish_lobby(id, .Update)
+			publish_lobby(id, .Add)
+		} else {
+			publish_lobby(id, .Update)
+		}
 	}
 
 	for id in to_resolve {

@@ -225,8 +225,9 @@ encode_id :: proc(id: u32, kind: Code_Kind, allocator := context.allocator) -> s
 	for start < 4 && bytes[start] == 0 { start += 1 }
 	if start == 4 { start = 3 }
 
-	encoded := base32.encode(bytes[start:], LOWERCASE_ENC_TABLE, allocator)
-	return strings.trim_right(encoded, "=")
+	encoded := base32.encode(bytes[start:], LOWERCASE_ENC_TABLE)
+	defer delete(encoded)
+	return strings.clone(strings.trim_right(encoded, "="), allocator)
 }
 
 decode_id :: proc(code: string, kind: Code_Kind) -> (u32, bool) {

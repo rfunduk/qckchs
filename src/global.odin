@@ -97,4 +97,5 @@ Game :: struct {
 	bot:               ^Bot_Handle,
 	white_last_seen:   i64,
 	black_last_seen:   i64,
+	public:            bool,
 }

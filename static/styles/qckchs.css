@@ -1,21 +1,30 @@
-body {
+:root {
+  --fg: black;
+  --bg: white;
+  --fg-pure: black;
   --hash-w: 0.5px;
   --hash-mini-w: 0.25px;
-  --hash-mini-w-dark: 0.25px;
-  --hash-w-dark: 0.25px;
-  --hash-mini-w-dark: 0.18px;
+}
+
+[data-theme="dark"] {
+  --fg: #DDD;
+  --fg-pure: white;
+  --bg: black;
+}
+
+body {
   font-family: system-ui, sans-serif;
   width: 502px;
   margin: 2rem auto;
   padding: 0 1rem;
+  background: var(--bg);
+  color: var(--fg-pure);
 }
 
 @supports (-moz-appearance: none) {
   body {
     --hash-w: 1px;
     --hash-mini-w: 0.5px;
-    --hash-w-dark: 0.5px;
-    --hash-mini-w-dark: 0.38px;
   }
 }
 
@@ -25,13 +34,13 @@ body {
   font-size: 0.9rem;
   text-decoration: none;
   padding: 3px 9px;
-  border: 1px solid black;
-  color: black;
-  background: white;
+  border: 1px solid var(--fg-pure);
+  color: var(--fg-pure);
+  background: var(--bg);
   cursor: pointer;
   &:hover {
-    background-color: black;
-    color: white;
+    background-color: var(--fg-pure);
+    color: var(--bg);
   }
 }
 
@@ -46,7 +55,7 @@ body {
 
     h1 {
       margin: 0;
-      color: black;
+      color: var(--fg-pure);
       letter-spacing: -3px;
       font-size: 2.5rem;
       -webkit-text-stroke: 1px black;
@@ -59,36 +68,36 @@ body {
         left: 2px;
         top: 2px;
         z-index: -1;
-        background-color: white;
+        background-color: var(--bg);
         background-clip: text;
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        -webkit-text-stroke: 1px black;
+        -webkit-text-stroke: 1px var(--fg-pure);
         paint-order: stroke fill;
       }
 
       &:hover {
-        color: white;
-        -webkit-text-stroke: 2px black;
+        color: var(--bg);
+        -webkit-text-stroke: 2px var(--fg-pure);
         &::after {
-          background-color: black;
-          -webkit-text-fill-color: black;
+          background-color: var(--fg-pure);
+          -webkit-text-fill-color: var(--fg-pure);
         }
       }
     }
   }
 
   &.white-player #logo h1, &.spectator-player #logo h1 {
-    color: white;
-    -webkit-text-stroke: 2px black;
+    color: var(--bg);
+    -webkit-text-stroke: 2px var(--fg-pure);
     &::after {
-      background-color: black;
-      -webkit-text-fill-color: black;
+      background-color: var(--fg-pure);
+      -webkit-text-fill-color: var(--fg-pure);
     }
     &:hover {
-      color: black;
+      color: var(--fg-pure);
       &::after {
-        background-color: white;
+        background-color: var(--bg);
         -webkit-text-fill-color: transparent;
       }
     }
@@ -97,8 +106,8 @@ body {
   .header-link {
     font-size: 0.75rem;
     &.current {
-      background: black;
-      color: white;
+      background: var(--fg-pure);
+      color: var(--bg);
     }
   }
 
@@ -107,8 +116,8 @@ body {
     height: 10px;
     margin-right: 6px;
     border-radius: 50%;
-    background: white;
-    border: 2px solid black;
+    background: var(--bg);
+    border: 2px solid var(--fg-pure);
     cursor: pointer;
     padding: 0;
     vertical-align: middle;
@@ -127,7 +136,17 @@ body {
 
     input[type="text"] {
       font-size: 0.9rem;
-      padding: 0.25rem 0.5rem;
+      padding: 0.35rem 0.58rem;
+      border: 1px solid var(--fg-pure);
+      color: black;
+      background: white;
+      &:focus {
+        outline: 2px solid var(--fg-pure);
+      }
+      &[disabled] {
+        background: var(--fg-pure);
+        color: var(--bg);
+      }
     }
 
     .name-input {
@@ -146,27 +165,23 @@ body {
     gap: 1.5rem;
     margin: 2rem 0;
     > div {
-      background: black;
-      color: white;
+      background: var(--fg-pure);
+      color: var(--bg);
       padding: 10px 20px;
       font-size: 1.2rem;
       text-align: center;
       display: flex;
       flex-direction: column;
       align-items: center;
-      label {
-        font-size: 0.9rem;
-      }
-      strong {
-        font-size: 1.5rem;
-      }
+      label { font-size: 0.9rem; }
+      strong { font-size: 1.5rem; }
     }
   }
 
   .notice {
-    background: black;
-    color: white;
-    border: 1px solid black;
+    background: var(--fg-pure);
+    color: var(--bg);
+    border: 1px solid var(--fg-pure);
     padding: 0.5rem 0.75rem;
     margin-bottom: 1rem;
     font-size: 0.9rem;
@@ -190,9 +205,9 @@ body {
 
 .logout-page {
   .notice {
-    background: black;
-    color: white;
-    border: 1px solid black;
+    background: var(--fg-pure);
+    color: var(--bg);
+    border: 1px solid var(--fg-pure);
     padding: 0.5rem 0.75rem;
     margin-bottom: 1rem;
     font-size: 0.9rem;
@@ -220,18 +235,18 @@ body {
   margin-bottom: 1.5rem;
   align-items: center;
   justify-content: start;
-  background-color: white;
+  background-color: var(--bg);
   background-image: repeating-linear-gradient(
     -45deg,
-    #000 0px, #000 var(--hash-w),
+    var(--fg) 0px, var(--fg) var(--hash-w),
     transparent var(--hash-w), transparent 50%
   );
   background-size: 8px 8px;
-  border: 1px solid black;
+  border: 1px solid var(--fg);
   text-align: center;
   font-size: 0.8rem;
   padding: 1.25rem 2rem;
-  label { font-size: 0.75rem; background: white; padding: 0 0.25rem; }
+  label { font-size: 0.75rem; background: var(--bg); padding: 0 0.25rem; }
   .buttons {
     display: flex;
     gap: 0.5rem;
@@ -248,7 +263,7 @@ body {
 
   .player-name {
     font-weight: 600;
-    color: black;
+    color: var(--fg-pure);
     text-decoration: none;
     letter-spacing: -1px;
   }
@@ -273,21 +288,29 @@ body {
   text-align: center;
   font-size: 0.8rem;
   padding: 2rem 3rem;
-  background: rgba(244, 244, 244, 0.95);
-  border: 1px solid black;
-  color: black;
+  background: var(--bg);
+  opacity: 0.95;
+  border: 1px solid var(--fg);
+  color: var(--fg-pure);
+
+  .variant {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
 
   &.waiting-for-players {
     p {
       -webkit-background-clip: text;
-      -webkit-text-fill-color: black;
-      -webkit-text-stroke: 3px white;
+      -webkit-text-fill-color: var(--fg-pure);
+      -webkit-text-stroke: 5px var(--bg);
       paint-order: stroke fill;
     }
-    background-color: white;
+    background-color: var(--bg);
     background-image: repeating-linear-gradient(
       -45deg,
-      #000 0px, #000 var(--hash-w),
+      var(--fg) 0px, var(--fg) var(--hash-w),
       transparent var(--hash-w), transparent 50%
     );
     background-size: 8px 8px;
@@ -318,7 +341,7 @@ body {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   grid-template-rows: repeat(6, 1fr);
-  border: 1px solid black;
+  border: 1px solid var(--fg);
   box-sizing: content-box;
   overflow: hidden;
 
@@ -327,8 +350,8 @@ body {
     display: grid;
     justify-items: center;
     align-items: center;
-    background: #FFF;
-    border: 1px solid black;
+    background: var(--bg);
+    border: 1px solid var(--fg);
     width: 100px;
     height: 100px;
     box-sizing: border-box;
@@ -337,16 +360,16 @@ body {
       content: '';
       position: absolute;
       inset: 0;
-      background-color: white;
+      background-color: var(--bg);
       background-image: repeating-linear-gradient(
         -45deg,
-        #000 0px, #000 var(--hash-w),
+        var(--fg) 0px, var(--fg) var(--hash-w),
         transparent var(--hash-w), transparent 50%
       );
       background-size: 8px 8px;
       pointer-events: none;
     }
-    &.dragging { opacity: 0.3; }
+    &.dragging { opacity: 0.6; }
     > img {
       width: 80%;
       height: 80%;
@@ -365,20 +388,20 @@ body {
       pointer-events: none;
       z-index: 2;
       background:
-        linear-gradient(135deg, black 8px, transparent 8px),
-        linear-gradient(225deg, black 8px, transparent 8px),
-        linear-gradient(315deg, black 8px, transparent 8px),
-        linear-gradient(45deg, black 8px, transparent 8px);
+        linear-gradient(135deg, var(--fg-pure) 8px, transparent 8px),
+        linear-gradient(225deg, var(--fg-pure) 8px, transparent 8px),
+        linear-gradient(315deg, var(--fg-pure) 8px, transparent 8px),
+        linear-gradient(45deg, var(--fg-pure) 8px, transparent 8px);
       background-position: top left, top right, bottom right, bottom left;
       background-size: 50% 50%;
       background-repeat: no-repeat;
     }
     &.hover-target::after {
       background:
-        linear-gradient(135deg, black 10px, transparent 10px),
-        linear-gradient(225deg, black 10px, transparent 10px),
-        linear-gradient(315deg, black 10px, transparent 10px),
-        linear-gradient(45deg, black 10px, transparent 10px);
+        linear-gradient(135deg, var(--fg-pure) 10px, transparent 10px),
+        linear-gradient(225deg, var(--fg-pure) 10px, transparent 10px),
+        linear-gradient(315deg, var(--fg-pure) 10px, transparent 10px),
+        linear-gradient(45deg, var(--fg-pure) 10px, transparent 10px);
       background-position: top left, top right, bottom right, bottom left;
       background-size: 50% 50%;
       background-repeat: no-repeat;
@@ -394,17 +417,17 @@ body {
       --t: 2px;
       background:
         /* top-left */
-        linear-gradient(black, black) top left / var(--l) var(--t) no-repeat,
-        linear-gradient(black, black) top left / var(--t) var(--l) no-repeat,
+        linear-gradient(var(--fg-pure), var(--fg-pure)) top left / var(--l) var(--t) no-repeat,
+        linear-gradient(var(--fg-pure), var(--fg-pure)) top left / var(--t) var(--l) no-repeat,
         /* top-right */
-        linear-gradient(black, black) top right / var(--l) var(--t) no-repeat,
-        linear-gradient(black, black) top right / var(--t) var(--l) no-repeat,
+        linear-gradient(var(--fg-pure), var(--fg-pure)) top right / var(--l) var(--t) no-repeat,
+        linear-gradient(var(--fg-pure), var(--fg-pure)) top right / var(--t) var(--l) no-repeat,
         /* bottom-right */
-        linear-gradient(black, black) bottom right / var(--l) var(--t) no-repeat,
-        linear-gradient(black, black) bottom right / var(--t) var(--l) no-repeat,
+        linear-gradient(var(--fg-pure), var(--fg-pure)) bottom right / var(--l) var(--t) no-repeat,
+        linear-gradient(var(--fg-pure), var(--fg-pure)) bottom right / var(--t) var(--l) no-repeat,
         /* bottom-left */
-        linear-gradient(black, black) bottom left / var(--l) var(--t) no-repeat,
-        linear-gradient(black, black) bottom left / var(--t) var(--l) no-repeat;
+        linear-gradient(var(--fg-pure), var(--fg-pure)) bottom left / var(--l) var(--t) no-repeat,
+        linear-gradient(var(--fg-pure), var(--fg-pure)) bottom left / var(--t) var(--l) no-repeat;
     }
   }
 }
@@ -419,6 +442,28 @@ body {
   justify-items: center;
   align-items: center;
   will-change: transform;
+  filter:
+    drop-shadow( 1px  0   0 white)
+    drop-shadow(-1px  0   0 white)
+    drop-shadow( 0    1px 0 white)
+    drop-shadow( 0   -1px 0 white);
+}
+
+#joinable {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 1rem;
+}
+
+.join-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--fg-pure);
+  z-index: 2;
 }
 
 #lobby, .profile-games {
@@ -433,6 +478,9 @@ body {
   flex-direction: column;
   text-decoration: none;
   color: inherit;
+  &.joinable-game {
+    .mini-board .sq { opacity: 0.7; }
+  }
 }
 
 .mini-bar {
@@ -453,12 +501,13 @@ body {
 }
 
 .mini-board {
+  position: relative;
   width: 115px;
   height: 138px;
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   grid-template-rows: repeat(6, 1fr);
-  border: 0.5px solid black;
+  border: 0.5px solid var(--fg);
   box-sizing: content-box;
 
   > div.sq {
@@ -466,8 +515,8 @@ body {
     display: grid;
     justify-items: center;
     align-items: center;
-    background: #FFF;
-    border: 0.5px solid black;
+    background: var(--bg);
+    border: 0.5px solid var(--fg);
     width: 23px;
     height: 23px;
     box-sizing: border-box;
@@ -478,10 +527,10 @@ body {
       inset: -50%;
       width: 200%;
       height: 200%;
-      background-color: white;
+      background-color: var(--bg);
       background-image: repeating-linear-gradient(
         -45deg,
-        #000 0px, #000 var(--hash-mini-w),
+        var(--fg) 0px, var(--fg) var(--hash-mini-w),
         transparent var(--hash-mini-w), transparent 50%
       );
       background-size: 3px 3px;
@@ -493,177 +542,10 @@ body {
       position: relative;
       z-index: 1;
       filter:
-        drop-shadow( 1px  0   0 white)
-        drop-shadow(-1px  0   0 white)
-        drop-shadow( 0    1px 0 white)
-        drop-shadow( 0   -1px 0 white);
-    }
-  }
-}
-
-[data-theme="dark"] {
-  body {
-    background: black;
-    color: white;
-  }
-
-  .button {
-    border-color: white;
-    color: white;
-    background: black;
-    &:hover {
-      background: white;
-      color: black;
-    }
-  }
-
-  #site-header {
-    .header-link.current {
-      background: white;
-      color: black;
-    }
-    .theme-toggle {
-      background: black;
-      border-color: white;
-    }
-    #logo h1 {
-      color: white;
-      -webkit-text-stroke: 1px black;
-      &::after {
-        background-color: black;
-        -webkit-text-stroke: 1px white;
-      }
-      &:hover {
-        color: black;
-        -webkit-text-stroke: 2px white;
-        &::after {
-          background-color: white;
-          -webkit-text-fill-color: white;
-        }
-      }
-    }
-  }
-
-  .player-bar .player-name { color: white; }
-
-  .game-status {
-    background: rgba(26, 26, 26, 0.95);
-    border-color: white;
-    color: white;
-    &.waiting-for-players {
-      background-color: black;
-      background-image: repeating-linear-gradient(
-        -45deg,
-        white 0px, white var(--hash-w-dark),
-        transparent var(--hash-w-dark), transparent 50%
-      );
-      p {
-        -webkit-text-fill-color: white;
-        -webkit-text-stroke: 3px black;
-      }
-    }
-  }
-
-  .new-game-options {
-    background-color: black;
-    background-image: repeating-linear-gradient(
-      -45deg,
-      white 0px, white var(--hash-w-dark),
-      transparent var(--hash-w-dark), transparent 50%
-    );
-    border-color: white;
-    label { background: black; color: white; }
-  }
-
-  #board {
-    border-color: white;
-    > div.sq {
-      background: black;
-      border-color: white;
-      &:nth-child(odd)::before {
-        background-color: black;
-        background-image: repeating-linear-gradient(
-          -45deg,
-          white 0px, white var(--hash-w-dark),
-          transparent var(--hash-w-dark), transparent 50%
-        );
-      }
-
-      &.valid-target::after {
-        background:
-          linear-gradient(135deg, white 8px, transparent 8px),
-          linear-gradient(225deg, white 8px, transparent 8px),
-          linear-gradient(315deg, white 8px, transparent 8px),
-          linear-gradient(45deg, white 8px, transparent 8px);
-      }
-      &.hover-target::after {
-        background:
-          linear-gradient(135deg, white 10px, transparent 10px),
-          linear-gradient(225deg, white 10px, transparent 10px),
-          linear-gradient(315deg, white 10px, transparent 10px),
-          linear-gradient(45deg, white 10px, transparent 10px);
-      }
-      &.hl-from::after,
-      &.hl-to::after {
-        background:
-          /* top-left */
-          linear-gradient(white, white) top left / var(--l) var(--t) no-repeat,
-          linear-gradient(white, white) top left / var(--t) var(--l) no-repeat,
-          /* top-right */
-          linear-gradient(white, white) top right / var(--l) var(--t) no-repeat,
-          linear-gradient(white, white) top right / var(--t) var(--l) no-repeat,
-          /* bottom-right */
-          linear-gradient(white, white) bottom right / var(--l) var(--t) no-repeat,
-          linear-gradient(white, white) bottom right / var(--t) var(--l) no-repeat,
-          /* bottom-left */
-          linear-gradient(white, white) bottom left / var(--l) var(--t) no-repeat,
-          linear-gradient(white, white) bottom left / var(--t) var(--l) no-repeat;
-      }
-    }
-  }
-
-  .mini-board {
-    border: 0.25px solid white;
-    > div.sq {
-      background: black;
-      border: 0.25px solid white;
-      &:nth-child(odd)::before {
-        background-color: black;
-        background-image: repeating-linear-gradient(
-          -45deg,
-          white 0px, white var(--hash-mini-w-dark),
-          transparent var(--hash-mini-w-dark), transparent 50%
-        );
-      }
-      > img {
-        filter:
-          drop-shadow( 0.5px  0   0 white)
-          drop-shadow(-0.5px  0   0 white)
-          drop-shadow( 0    0.5px 0 white)
-          drop-shadow( 0   -0.5px 0 white);
-      }
-    }
-  }
-
-  .pk-display input:disabled { color: white; }
-
-  .profile-page {
-    .profile-stats > div {
-      background: white;
-      color: black;
-    }
-    .notice {
-      background: white;
-      color: black;
-      border-color: white;
-    }
-  }
-
-  .logout-page {
-    .notice {
-      background: white;
-      color: black;
-      border-color: white;
+        drop-shadow( 0.5px  0   0 white)
+        drop-shadow(-0.5px  0   0 white)
+        drop-shadow( 0    0.5px 0 white)
+        drop-shadow( 0   -0.5px 0 white);
     }
   }
 }

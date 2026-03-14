@@ -47,6 +47,7 @@ Game_Signals :: struct {
 	paired:  bool,
 	ply:     int,
 	max_ply: int `json:"maxPly"`,
+	public:  int,
 }
 
 effective_periods :: proc(clock: Clock, state: State, now: i64) -> (u16, u16) {
@@ -77,6 +78,7 @@ game_signals :: proc(game: ^Game, now: i64) -> string {
 		paired = game.white_key != EMPTY_KEY && game.black_key != EMPTY_KEY,
 		ply = ply,
 		max_ply = ply,
+		public = game.public ? 1 : 0,
 	}
 	bytes, _ := json.marshal(sigs)
 	return string(bytes)
@@ -282,7 +284,7 @@ game_move :: proc(game: ^Game, pk: Player_Key, from, to: u8, now: i64) -> (chess
 	if king_captured {
 		game.state = .Resolved
 		game.result = game.current_player == .White ? .Black_By_Capture : .White_By_Capture
-	} else if is_progress && chess.is_insufficient_material(game.board) {
+	} else if is_progress && chess.is_insufficient_material(game.board, game.current_player) {
 		game.state = .Stalemate
 		game.result = .Stalemate
 	} else if chess.is_threefold_repetition(sa.slice(&game.position_hashes)) {

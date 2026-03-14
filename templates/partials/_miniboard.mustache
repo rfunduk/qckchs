@@ -1,5 +1,12 @@
-<a id="lobby-{{code}}" href="/games/{{code}}" class="mini-game">
-  <div class="mini-bar"><span>{{black.name}}</span>{{#black.has_won}}<span>&#x2714;</span>{{/black.has_won}}</div>
+<a
+  id="lobby-{{code}}"
+  href="/games/{{code}}{{#joinable}}?join=1{{/joinable}}"
+  class="mini-game {{#joinable}}joinable-game{{/joinable}}"
+>
+  <div class="mini-bar">
+    <span>{{black.name}}</span>
+    {{#black.has_won}}<span>&#x2714;</span>{{/black.has_won}}
+  </div>
   <div class="mini-board">
     {{#squares}}
       <div class="sq">
@@ -8,6 +15,12 @@
         {{/has_piece}}
       </div>
     {{/squares}}
+    {{#joinable}}
+      <div class="join-overlay"><span class="button">Join</span></div>
+    {{/joinable}}
   </div>
-  <div class="mini-bar"><span>{{white.name}}</span>{{#white.has_won}}<span>&#x2714;</span>{{/white.has_won}}</div>
+  <div class="mini-bar">
+    <span>{{white.name}}</span>
+    {{#white.has_won}}<span>&#x2714;</span>{{/white.has_won}}
+  </div>
 </a>

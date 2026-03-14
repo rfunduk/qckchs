@@ -24,12 +24,15 @@ if [ ! -d "$FACILIO_DIR" ]; then
 	curl -sL "$FACILIO_URL" | tar -xzf - -C "$DIR/vendor/"
 fi
 
+CFLAGS="-O2 -DNDEBUG -fno-asynchronous-unwind-tables"
+
 cd "$FACILIO_DIR"
 echo "Generating libdump..."
 make libdump --quiet
 echo "Building static library..."
 cd "$FACILIO_DIR/libdump"
-cc -c src/*.c -I include/
+cc -c $CFLAGS src/*.c -I include/
+rm -f "$FACILIO_DIR/libfacil.a"
 ar rcs "$FACILIO_DIR/libfacil.a" *.o
 rm -f *.o
 echo "Done."
@@ -49,7 +52,8 @@ tar -xzf "/tmp/mustache4c.tar.gz" --strip-components=2 -C "$MUSTACHE4C_DIR" "mus
 rm -f "/tmp/mustache4c.tar.gz"
 cd "$MUSTACHE4C_DIR"
 echo "Building..."
-cc -c mustache.c -o mustache.o
+cc -c $CFLAGS mustache.c -o mustache.o
+rm -f libmustache4c.a
 ar rcs libmustache4c.a mustache.o
 rm -f mustache.o
 echo "Done."

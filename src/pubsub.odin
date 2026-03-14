@@ -140,17 +140,32 @@ handle_game_update :: proc "c" (sse: fio.SSE, udata: rawptr, msg_ptr: [^]u8, msg
 		code := exists ? game.code : game_code(id)
 		selector := fmt.aprintf("#lobby-%s", code)
 
+		joinable_selector := fmt.aprintf("#joinable-%s", code)
+
 		switch op {
 		case 'a':
 			if !exists { return }
-			html, rok := render_lobby_game(id, game)
-			if rok { ds_append_el(sse, "#lobby", html) }
+			if game.public && game.state == .Waiting {
+				html, rok := render_joinable_game(id, game)
+				if rok { ds_append_el(sse, "#joinable", html) }
+			} else {
+				html, rok := render_lobby_game(id, game)
+				if rok { ds_append_el(sse, "#lobby", html) }
+			}
 		case 'u':
 			if !exists { return }
-			html, rok := render_lobby_game(id, game)
-			if rok { ds_patch_el(sse, selector, html) }
+			if game.state in PLAYING_STATES || game.state == .Resolved || game.state == .Stalemate {
+				// Game started or finished — remove from joinable, patch in lobby
+				ds_remove_el(sse, joinable_selector)
+				html, rok := render_lobby_game(id, game)
+				if rok { ds_patch_el(sse, selector, html) }
+			} else {
+				html, rok := render_lobby_game(id, game)
+				if rok { ds_patch_el(sse, selector, html) }
+			}
 		case 'r':
 			ds_remove_el(sse, selector)
+			ds_remove_el(sse, joinable_selector)
 		}
 	case .Game:
 		game_id := Game_Id(sub.id)

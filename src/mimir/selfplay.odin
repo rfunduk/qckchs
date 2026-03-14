@@ -77,7 +77,7 @@ run_selfplay :: proc(eng: ^Engine, depth: i32, num_games: i32) {
 			sa.push_back(&pos_hashes, h)
 
 			// Draw checks (server order: games.odin:223-237)
-			if (is_capture || is_pawn) && chess.is_insufficient_material(board) {
+			if (is_capture || is_pawn) && chess.is_insufficient_material(board, opp) {
 				result = 0.5
 				game_over = true
 				break

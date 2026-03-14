@@ -32,7 +32,7 @@ apply_move :: proc(board: ^Board, move: Move) {
 	}
 }
 
-is_insufficient_material :: proc(board: Board) -> bool {
+is_insufficient_material :: proc(board: Board, next_to_move: Player) -> bool {
 	piece_count: u8
 	has_wb, has_bb: bool
 	for sq: u8 = 0; sq < RANKS * FILES; sq += 1 {
@@ -43,9 +43,28 @@ is_insufficient_material :: proc(board: Board) -> bool {
 		if piece == .WB { has_wb = true }
 		if piece == .BB { has_bb = true }
 	}
-	// K vs K, K+minor vs K
-	if piece_count <= 3 { return true }
+
+	// K vs K, K+minor vs K or
 	// K+B vs K+B (any bishop colors — neither side can force capture)
-	if piece_count == 4 && has_wb && has_bb { return true }
+	is_insuff: bool = piece_count <= 3 || (piece_count == 4 && has_wb && has_bb)
+	if !is_insuff { return false }
+
+	// Even with insufficient material, if the opponent's king is currently
+	// capturable, it's not a draw — the side to move wins immediately.
+	return !is_king_capturable(board, next_to_move)
+}
+
+// Returns true if `attacker` has any piece that can capture the opponent's king.
+is_king_capturable :: proc(board: Board, attacker: Player) -> bool {
+	target_king: Piece = attacker == .White ? .BK : .WK
+	own := attacker == .White ? White_Pieces : Black_Pieces
+	king_sq: u8
+	for sq: u8 = 0; sq < RANKS * FILES; sq += 1 {
+		if board[sq] == target_king { king_sq = sq;break }
+	}
+	for sq: u8 = 0; sq < RANKS * FILES; sq += 1 {
+		if board[sq] == .X || board[sq] not_in own { continue }
+		if int(king_sq) in piece_targets(board, sq) { return true }
+	}
 	return false
 }

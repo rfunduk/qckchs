@@ -90,7 +90,13 @@ cli_lookup_player :: proc(code: string) {
 
 	fmt.printfln("Player %s (#%d)", code, player_id)
 	fmt.printfln("Name:   %s", len(name) > 0 ? name : "(unnamed)")
-	fmt.printfln("Played: %d  Wins: %d  Losses: %d  Draws: %d", stats.played, stats.wins, stats.losses, stats.draws)
+	fmt.printfln(
+		"Played: %d  Wins: %d  Losses: %d  Draws: %d",
+		stats.played,
+		stats.wins,
+		stats.losses,
+		stats.draws,
+	)
 	fmt.println()
 
 	games := db_get_player_games(pk)
@@ -114,13 +120,59 @@ cli_lookup_player :: proc(code: string) {
 	}
 }
 
-cli_selfplay :: proc(games: i32, depth: i32) {
+cli_selfplay :: proc(games: i32, depth: i32, hce: bool, nnue_path: string) {
 	chess.init()
-	mimir.init()
+	mimir.init_no_nnue()
 	defer mimir.destroy()
 
 	eng := mimir.engine_create()
 	defer mimir.engine_destroy(eng)
 
+	w: ^mimir.NNUE_Weights
+	if !hce {
+		path := len(nnue_path) > 0 ? nnue_path : "mimir.nnue"
+		ok: bool
+		w, ok = mimir.load_nnue_weights(path)
+		if ok { eng.nnue = w }
+	}
+	defer mimir.destroy_nnue_weights(w)
+
 	mimir.run_selfplay(eng, depth, games)
+}
+
+cli_match :: proc(count: i32, depth: i32, nnue1: string, nnue2: string) {
+	chess.init()
+	mimir.init_no_nnue()
+	defer mimir.destroy()
+
+	eng1 := mimir.engine_create()
+	eng2 := mimir.engine_create()
+	defer mimir.engine_destroy(eng1)
+	defer mimir.engine_destroy(eng2)
+
+	w1: ^mimir.NNUE_Weights
+	w2: ^mimir.NNUE_Weights
+	defer mimir.destroy_nnue_weights(w1)
+	defer mimir.destroy_nnue_weights(w2)
+
+	if len(nnue1) > 0 {
+		ok: bool
+		w1, ok = mimir.load_nnue_weights(nnue1)
+		if !ok {
+			fmt.eprintfln("Failed to load %s", nnue1)
+			return
+		}
+		eng1.nnue = w1
+	}
+	if len(nnue2) > 0 {
+		ok: bool
+		w2, ok = mimir.load_nnue_weights(nnue2)
+		if !ok {
+			fmt.eprintfln("Failed to load %s", nnue2)
+			return
+		}
+		eng2.nnue = w2
+	}
+
+	mimir.run_match(eng1, eng2, depth, count)
 }

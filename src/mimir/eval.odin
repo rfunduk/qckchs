@@ -126,7 +126,7 @@ is_drawish :: proc(board: chess.Board) -> bool {
 
 // --- Main evaluation (dispatches to NNUE or HCE) ---
 
-evaluate :: proc(board: chess.Board, player: chess.Player, noise: i32 = 0) -> i32 {
+evaluate :: proc(eng: ^Engine, board: chess.Board, player: chess.Player) -> i32 {
 	// Drawish detection first — server rules, not learnable
 	if is_drawish(board) {
 		return 0
@@ -134,14 +134,14 @@ evaluate :: proc(board: chess.Board, player: chess.Player, noise: i32 = 0) -> i3
 
 	score: i32
 	// NNUE if available, otherwise fall back to HCE
-	if nnue_weights.loaded {
-		score = nnue_evaluate(board, player)
+	if eng.nnue != nil {
+		score = nnue_evaluate(eng.nnue, board, player)
 	} else {
 		score = evaluate_hce(board, player)
 	}
 
-	if noise > 0 {
-		score += i32(rand.int_max(int(noise * 2 + 1))) - noise
+	if eng.eval_noise > 0 {
+		score += i32(rand.int_max(int(eng.eval_noise * 2 + 1))) - eng.eval_noise
 	}
 
 	return score

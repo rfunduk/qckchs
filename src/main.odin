@@ -17,6 +17,12 @@ CLI_Args :: struct {
 	selfplay: bool `usage:"run engine selfplay (training data to stdout)"`,
 	games:    i32 `usage:"number of selfplay games (0 = infinite)"`,
 	depth:    i32 `usage:"selfplay search depth"`,
+	hce:      bool `usage:"use HCE eval instead of NNUE for selfplay"`,
+	nnue:     string `usage:"NNUE weights file for selfplay (default: mimir.nnue)"`,
+	match:    bool `args:"name=match" usage:"run engine-vs-engine match"`,
+	count:    i32 `usage:"number of matches (each = 2 games, one per color)"`,
+	nnue1:    string `usage:"NNUE weights for engine 1 (omit for HCE)"`,
+	nnue2:    string `usage:"NNUE weights for engine 2 (omit for HCE)"`,
 }
 
 g: ^Engine_Memory
@@ -68,7 +74,7 @@ main :: proc() {
 	global_context = context
 
 	args := CLI_Args {
-		depth = 64,
+		depth = 4,
 	}
 	flags.parse_or_exit(&args, os.args, .Odin)
 
@@ -78,8 +84,11 @@ main :: proc() {
 	} else if len(args.player) > 0 {
 		cli_lookup_player(args.player)
 		return
+	} else if args.match {
+		cli_match(args.count, args.depth, args.nnue1, args.nnue2)
+		return
 	} else if args.selfplay {
-		cli_selfplay(args.games, args.depth)
+		cli_selfplay(args.games, args.depth, args.hce, args.nnue)
 		return
 	}
 

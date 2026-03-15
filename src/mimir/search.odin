@@ -77,6 +77,8 @@ Engine :: struct {
 	capture_history: [chess.Piece][30][chess.Piece]i32,
 	// Eval noise (centipawns, per-engine for thread safety)
 	eval_noise:      i32,
+	// Per-engine NNUE weights (nil = use HCE)
+	nnue:            ^NNUE_Weights,
 }
 
 // --- Constants ---
@@ -351,7 +353,7 @@ quiesce :: proc(
 	tb_score, tb_found := egtb_probe(board, player)
 	if tb_found && tb_score != 0 { eng.egtb_hits += 1;return tb_score }
 
-	stand_pat := evaluate(board, player, eng.eval_noise)
+	stand_pat := evaluate(eng, board, player)
 	if stand_pat >= beta { return beta }
 	alpha := alpha_in
 	if stand_pat > alpha { alpha = stand_pat }
@@ -440,7 +442,7 @@ negamax :: proc(
 
 	futile := false
 	if can_futility && !king_is_attacked(board, player) && abs(alpha) < INF - 1000 {
-		static_eval := evaluate(board, player, eng.eval_noise)
+		static_eval := evaluate(eng, board, player)
 		futile = static_eval + futility_margin <= alpha
 	}
 
@@ -785,17 +787,19 @@ pick_best_move :: proc(
 		}
 		prev_best_move = move
 
-		// Early exit based on stability
-		elapsed := time.tick_diff(start, time.tick_now())
-		threshold: time.Duration
-		if unstable_count == 0 {
-			threshold = budget / 4 // very stable, safe to stop early
-		} else if unstable_count >= 2 {
-			threshold = budget * 3 / 4 // unstable, keep thinking
-		} else {
-			threshold = budget / 2 // default
+		// Early exit based on stability (skip in selfplay/match — use full depth)
+		if !eng.selfplay {
+			elapsed := time.tick_diff(start, time.tick_now())
+			threshold: time.Duration
+			if unstable_count == 0 {
+				threshold = budget / 4 // very stable, safe to stop early
+			} else if unstable_count >= 2 {
+				threshold = budget * 3 / 4 // unstable, keep thinking
+			} else {
+				threshold = budget / 2 // default
+			}
+			if elapsed > threshold { break }
 		}
-		if elapsed > threshold { break }
 	}
 
 	eng.last_score = prev_score

@@ -1,12 +1,18 @@
 package mimir
 
+// init_no_nnue initializes all mimir subsystems except NNUE weights.
+// Use when engines will load their own weights.
+init_no_nnue :: proc() {
+	init_zobrist()
+	init_egtb()
+	init_lmr()
+}
+
 // init initializes all mimir subsystems (shared read-only state).
 // Must be called after chess.init().
 init :: proc(nnue_path: string = "mimir.nnue") {
-	init_zobrist()
-	init_egtb()
+	init_no_nnue()
 	init_nnue(nnue_path)
-	init_lmr()
 }
 
 // destroy frees all shared mimir state.

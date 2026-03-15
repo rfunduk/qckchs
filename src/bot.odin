@@ -222,6 +222,7 @@ bot_worker :: proc(t: ^thread.Thread) {
 	config := handle.config
 	eng := mimir.engine_create(config.tt_size)
 	eng.eval_noise = config.noise
+	eng.nnue = &mimir.nnue_weights
 	defer mimir.engine_destroy(eng)
 
 	log.infof(

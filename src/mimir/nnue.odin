@@ -122,6 +122,87 @@ destroy_nnue :: proc() {
 	}
 }
 
+load_nnue_weights :: proc(path: string) -> (^NNUE_Weights, bool) {
+	data, ok := os.read_entire_file(path)
+	if !ok {
+		fmt.eprintfln("NNUE: %s not found", path)
+		return nil, false
+	}
+	defer delete(data)
+
+	if len(data) < 16 {
+		fmt.eprintln("NNUE: file too small")
+		return nil, false
+	}
+
+	if data[0] != 'N' || data[1] != 'N' || data[2] != 'U' || data[3] != 'E' {
+		fmt.eprintln("NNUE: invalid magic")
+		return nil, false
+	}
+
+	version := data[4]
+	input_size := int(read_u16_le(data[:], 5))
+	hidden_size := int(read_u16_le(data[:], 7))
+	qa := i32(read_u16_le(data[:], 9))
+	qb := i32(read_u16_le(data[:], 11))
+
+	if version != 1 {
+		fmt.eprintfln("NNUE: unsupported version %d", version)
+		return nil, false
+	}
+	if input_size != NNUE_INPUT_SIZE {
+		fmt.eprintfln("NNUE: expected input_size=%d, got %d", NNUE_INPUT_SIZE, input_size)
+		return nil, false
+	}
+
+	expected_size := 16 + input_size * hidden_size * 2 + hidden_size * 2 + hidden_size * 2 + 2
+	if len(data) < expected_size {
+		fmt.eprintfln("NNUE: file too small (need %d bytes, got %d)", expected_size, len(data))
+		return nil, false
+	}
+
+	feature_weights := make([]i16, input_size * hidden_size)
+	feature_biases := make([]i16, hidden_size)
+	output_weights := make([]i16, hidden_size)
+
+	offset := 16
+	for i in 0 ..< input_size * hidden_size {
+		feature_weights[i] = read_i16_le(data[:], offset)
+		offset += 2
+	}
+	for i in 0 ..< hidden_size {
+		feature_biases[i] = read_i16_le(data[:], offset)
+		offset += 2
+	}
+	for i in 0 ..< hidden_size {
+		output_weights[i] = read_i16_le(data[:], offset)
+		offset += 2
+	}
+	output_bias := read_i16_le(data[:], offset)
+
+	w := new(NNUE_Weights)
+	w^ = NNUE_Weights {
+		loaded          = true,
+		hidden_size     = hidden_size,
+		qa              = qa,
+		qb              = qb,
+		feature_weights = feature_weights,
+		feature_biases  = feature_biases,
+		output_weights  = output_weights,
+		output_bias     = output_bias,
+	}
+	fmt.eprintfln("NNUE: loaded %s (%d→%d→1, QA=%d QB=%d)", path, input_size, hidden_size, qa, qb)
+	return w, true
+}
+
+destroy_nnue_weights :: proc(w: ^NNUE_Weights) {
+	if w == nil { return }
+	delete(w.feature_weights)
+	delete(w.feature_biases)
+	delete(w.output_weights)
+	free(w)
+}
+
 // --- Inference ---
 
 // Map Piece enum to NNUE piece index (0-11), returns -1 for empty.
@@ -157,8 +238,8 @@ piece_to_nnue_index :: proc(p: chess.Piece) -> i32 {
 	return -1
 }
 
-nnue_evaluate :: proc(board: chess.Board, player: chess.Player) -> i32 {
-	hidden_size := nnue_weights.hidden_size
+nnue_evaluate :: proc(w: ^NNUE_Weights, board: chess.Board, player: chess.Player) -> i32 {
+	hidden_size := w.hidden_size
 
 	// Stack-allocate accumulator (max reasonable hidden size)
 	MAX_HIDDEN :: 1024
@@ -167,7 +248,7 @@ nnue_evaluate :: proc(board: chess.Board, player: chess.Player) -> i32 {
 
 	// Initialize with biases
 	for i in 0 ..< hidden_size {
-		accumulator[i] = i32(nnue_weights.feature_biases[i])
+		accumulator[i] = i32(w.feature_biases[i])
 	}
 
 	is_black := player == .Black
@@ -195,20 +276,20 @@ nnue_evaluate :: proc(board: chess.Board, player: chess.Player) -> i32 {
 		fw_offset := feature * hidden_size
 
 		for i in 0 ..< hidden_size {
-			accumulator[i] += i32(nnue_weights.feature_weights[fw_offset + i])
+			accumulator[i] += i32(w.feature_weights[fw_offset + i])
 		}
 	}
 
 	// Output layer with ClippedReLU
-	qa := nnue_weights.qa
-	output: i32 = i32(nnue_weights.output_bias)
+	qa := w.qa
+	output: i32 = i32(w.output_bias)
 	for i in 0 ..< hidden_size {
 		clamped := clamp(accumulator[i], 0, qa)
-		output += clamped * i32(nnue_weights.output_weights[i])
+		output += clamped * i32(w.output_weights[i])
 	}
 
 	// Convert from quantized logit to centipawns:
 	// float_logit = output / (QA * QB) ≈ score / 400
 	// centipawns = float_logit * 400 = output * 400 / (QA * QB)
-	return i32(i64(output) * 400 / (i64(qa) * i64(nnue_weights.qb)))
+	return i32(i64(output) * 400 / (i64(qa) * i64(w.qb)))
 }

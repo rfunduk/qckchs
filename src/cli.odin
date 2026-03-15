@@ -90,13 +90,7 @@ cli_lookup_player :: proc(code: string) {
 
 	fmt.printfln("Player %s (#%d)", code, player_id)
 	fmt.printfln("Name:   %s", len(name) > 0 ? name : "(unnamed)")
-	fmt.printfln(
-		"Played: %d  Wins: %d  Losses: %d  Draws: %d",
-		stats.played,
-		stats.wins,
-		stats.losses,
-		stats.draws,
-	)
+	fmt.printfln("Played: %d  Wins: %d  Losses: %d  Draws: %d", stats.played, stats.wins, stats.losses, stats.draws)
 	fmt.println()
 
 	games := db_get_player_games(pk)

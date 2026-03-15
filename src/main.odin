@@ -3,6 +3,7 @@ package qckchs
 import "base:runtime"
 import "core:flags"
 import "core:fmt"
+import "core:log"
 import "core:mem"
 import "core:os"
 import "core:strings"
@@ -74,7 +75,7 @@ main :: proc() {
 	global_context = context
 
 	args := CLI_Args {
-		depth = 4,
+		depth = 64,
 	}
 	flags.parse_or_exit(&args, os.args, .Odin)
 
@@ -100,7 +101,10 @@ main :: proc() {
 			log.fatal("ORIGIN env var must be set in production (https://example.com)")
 			return
 		}
+	} else {
+		_ = log.Level
 	}
+
 	if len(origin) > 0 {
 		fio.set_origin(strings.clone_to_cstring(origin))
 	}

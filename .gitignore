@@ -5,3 +5,5 @@ tests.bin.*
 provisioning/vars.yml
 *.db*
 mimir.json
+bin/nnue/.venv/
+bin/nnue/uv.lock

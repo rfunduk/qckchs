@@ -1,6 +1,7 @@
 package qckchs
 
 import "base:runtime"
+import "core:flags"
 import "core:fmt"
 import "core:mem"
 import "core:os"
@@ -9,6 +10,14 @@ import "core:strings"
 import fio "lib:facilio"
 
 import "mimir"
+
+CLI_Args :: struct {
+	game:     string `usage:"look up a game by code"`,
+	player:   string `usage:"look up a player by code"`,
+	selfplay: bool `usage:"run engine selfplay (training data to stdout)"`,
+	games:    i32 `usage:"number of selfplay games (0 = infinite)"`,
+	depth:    i32 `usage:"selfplay search depth"`,
+}
 
 g: ^Engine_Memory
 
@@ -58,12 +67,34 @@ main :: proc() {
 
 	global_context = context
 
-	if len(os.args) > 1 {
-		cli_lookup_game(os.args[1])
+	args := CLI_Args {
+		depth = 64,
+	}
+	flags.parse_or_exit(&args, os.args, .Odin)
+
+	if len(args.game) > 0 {
+		cli_lookup_game(args.game)
+		return
+	} else if len(args.player) > 0 {
+		cli_lookup_player(args.player)
+		return
+	} else if args.selfplay {
+		cli_selfplay(args.games, args.depth)
 		return
 	}
 
 	fio.set_log(fio_log)
+
+	origin, has_origin := os.lookup_env("ORIGIN")
+	when !ODIN_DEBUG {
+		if !has_origin || len(origin) == 0 || !strings.has_prefix(origin, "https://") {
+			log.fatal("ORIGIN env var must be set in production (https://example.com)")
+			return
+		}
+	}
+	if len(origin) > 0 {
+		fio.set_origin(strings.clone_to_cstring(origin))
+	}
 
 	engine_init()
 	init_bot_configs()

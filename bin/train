@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+set -e
+
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." >/dev/null 2>&1 && pwd )"
+
+if [ $# -lt 2 ]; then
+	echo "Usage: bin/train output.nnue datafile [datafile ...] [--epochs 15] [--lambda 0.75] [--hidden 128]"
+	exit 1
+fi
+
+exec uv run --project "$DIR/bin/nnue" "$DIR/bin/nnue/main.py" "$@"

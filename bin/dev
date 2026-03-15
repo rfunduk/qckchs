@@ -4,6 +4,15 @@ set -e
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." >/dev/null 2>&1 && pwd )"
 cd "$DIR"
 
+if [ $# -gt 0 ]; then
+  if [ ! -f "$DIR/build/debug/qckchs" ]; then
+    echo "error: build/debug/qckchs not found. Run bin/build first." >&2
+    exit 1
+  fi
+  cd $DIR/build/debug && ./qckchs "$@"
+  exit $?
+fi
+
 mkdir -p $DIR/build/debug
 
 # Generate mimir.json with random bot PKs if it doesn't exist

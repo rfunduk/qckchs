@@ -158,7 +158,8 @@ route_profile :: proc(req: fio.Req, path: string) {
 
 			next_len: u32
 			next_cstr := fio.get_form_param(req, "next", 4, &next_len)
-			next := next_cstr != nil ? strings.clone_from_cstring(next_cstr)[:next_len] : "/"
+			next_raw := next_cstr != nil ? strings.clone_from_cstring(next_cstr)[:next_len] : "/"
+			next := strings.has_prefix(next_raw, "/") && !strings.has_prefix(next_raw, "//") ? next_raw : "/"
 
 			was_claimed := db_is_player_claimed(pk)
 			db_claim_player(pk, name)
@@ -195,7 +196,7 @@ route_profile :: proc(req: fio.Req, path: string) {
 	// GET — gather profile data
 	query := get_query(req)
 	next := get_query_param(query, "next")
-	if len(next) == 0 { next = "/" }
+	if len(next) == 0 || !strings.has_prefix(next, "/") || strings.has_prefix(next, "//") { next = "/" }
 	saved := get_query_param(query, "saved") == "1"
 
 	name: string

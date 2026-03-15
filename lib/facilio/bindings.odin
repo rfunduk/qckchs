@@ -35,6 +35,7 @@ foreign wrapper {
 	free :: proc(ptr: rawptr) ---
 	run_every :: proc(ms: u32, task: proc "c" (arg: rawptr), arg: rawptr) ---
 	set_log :: proc(fn: Log_Fn) ---
+	set_origin :: proc(origin: cstring) ---
 	on_sse_message :: proc(handler: SSE_Msg_Handler) ---
 	sse_subscribe :: proc(sse: SSE, channel: [^]u8, channel_len: u32, udata: rawptr) ---
 	publish :: proc(channel: [^]u8, channel_len: u32, msg: [^]u8, msg_len: u32) ---

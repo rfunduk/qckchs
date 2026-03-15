@@ -54,8 +54,9 @@ effective_periods :: proc(clock: Clock, state: State, now: i64) -> (u16, u16) {
 	if state not_in PLAYING_STATES {
 		return clock.white_periods, clock.black_periods
 	}
-	elapsed_s := u16((now - clock.last_move_at) / i64(time.Second))
-	burned := elapsed_s / PERIOD_SECONDS
+	// Compute in i64 to avoid u16 wraparound on stale timestamps (>18h)
+	elapsed_s := (now - clock.last_move_at) / i64(time.Second)
+	burned := u16(min(elapsed_s / PERIOD_SECONDS, i64(max(u16))))
 	wp := clock.white_periods
 	bp := clock.black_periods
 	if state == .Turn_White {

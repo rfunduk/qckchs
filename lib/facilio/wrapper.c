@@ -16,6 +16,9 @@ typedef void (*fiow_sse_msg_fn)(http_sse_s *sse, void *udata,
 static fiow_handler request_handler = NULL;
 static fiow_sse_msg_fn sse_msg_handler = NULL;
 
+static const char *allowed_origin = NULL;
+static size_t allowed_origin_len = 0;
+
 static const char *stream_prefix = NULL;
 static size_t stream_prefix_len = 0;
 static fiow_sse_handler stream_on_open = NULL;
@@ -98,18 +101,30 @@ static void on_request(http_s *h) {
 
     fio_str_info_s method = fiobj_obj2cstr(h->method);
     if (method.len == 4 && memcmp(method.data, "POST", 4) == 0) {
+        // CSRF: reject POSTs with a mismatched Origin header
+        if (allowed_origin) {
+            unsigned int origin_len;
+            const char *origin = fiow_get_header(h, "origin", 6, &origin_len);
+            if (origin && (origin_len != allowed_origin_len ||
+                           memcmp(origin, allowed_origin, allowed_origin_len) != 0)) {
+                log_request(h, 403);
+                http_send_error(h, 403);
+                return;
+            }
+        }
+
         // Guard against malformed bodies that can infinite-loop facil.io's parser.
         unsigned int cl_len;
         const char *cl_str = fiow_get_header(h, "content-length", 14, &cl_len);
         if (cl_str && cl_len > 0) {
-            size_t body_len = (size_t)strtoul(cl_str, NULL, 10);
-            if (body_len <= 4096) {
-                http_parse_body(h);
-            } else {
+            char *endptr;
+            unsigned long body_len = strtoul(cl_str, &endptr, 10);
+            if (endptr == cl_str || body_len > 4096) {
                 log_request(h, 413);
                 http_send_error(h, 413);
                 return;
             }
+            http_parse_body(h);
         }
     }
 
@@ -132,6 +147,11 @@ static void on_upgrade(http_s *h, char *requested_protocol, size_t len) {
 }
 
 // --- Public API ---
+
+void fiow_set_origin(const char *origin) {
+    allowed_origin = origin;
+    allowed_origin_len = origin ? strlen(origin) : 0;
+}
 
 void fiow_listen(const char *port) {
     http_listen(port, NULL,

@@ -212,6 +212,9 @@
     - name: Set MIMIR_PATH for bot config
       command: dokku config:set --no-restart {{ app_name }} MIMIR_PATH={{ mimir_path }}
 
+    - name: Set ORIGIN for CSRF protection
+      command: dokku config:set --no-restart {{ app_name }} ORIGIN=https://{{ domain }}
+
     # -------------------------------------------------------------------------
     # Maintenance page & nginx config
     # -------------------------------------------------------------------------

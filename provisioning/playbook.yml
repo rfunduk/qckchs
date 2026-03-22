@@ -240,25 +240,16 @@
         state: directory
         mode: "0755"
 
-    - name: Deploy static assets nginx config
+    - name: Deploy nginx configs
       template:
-        src: templates/static.conf
-        dest: "{{ dokku_app_root }}/{{ app_name }}/nginx.conf.d/static.conf"
+        src: "templates/{{ item }}"
+        dest: "{{ dokku_app_root }}/{{ app_name }}/nginx.conf.d/{{ item }}"
         mode: "0644"
-      notify: Rebuild nginx config
-
-    - name: Deploy maintenance page nginx config
-      template:
-        src: templates/maintenance.conf
-        dest: "{{ dokku_app_root }}/{{ app_name }}/nginx.conf.d/maintenance.conf"
-        mode: "0644"
-      notify: Rebuild nginx config
-
-    - name: Deploy error pages nginx config
-      template:
-        src: templates/errors.conf
-        dest: "{{ dokku_app_root }}/{{ app_name }}/nginx.conf.d/errors.conf"
-        mode: "0644"
+      loop:
+        - static.conf
+        - maintenance.conf
+        - errors.conf
+        - security.conf
       notify: Rebuild nginx config
 
     # -------------------------------------------------------------------------

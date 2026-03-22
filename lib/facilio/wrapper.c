@@ -101,31 +101,22 @@ static void on_request(http_s *h) {
 
     fio_str_info_s method = fiobj_obj2cstr(h->method);
     if (method.len == 4 && memcmp(method.data, "POST", 4) == 0) {
-        // CSRF: reject POSTs with a mismatched Origin header
+        // CSRF: require a matching Origin header on all POSTs.
+        // Browsers always send Origin on form submissions.
+        // Scanners/bots don't — rejecting them here prevents their
+        // garbage bodies from reaching facil.io's parser.
         if (allowed_origin) {
             unsigned int origin_len;
             const char *origin = fiow_get_header(h, "origin", 6, &origin_len);
-            if (origin && (origin_len != allowed_origin_len ||
-                           memcmp(origin, allowed_origin, allowed_origin_len) != 0)) {
+            if (!origin || origin_len != allowed_origin_len ||
+                memcmp(origin, allowed_origin, allowed_origin_len) != 0) {
                 log_request(h, 403);
                 http_send_error(h, 403);
                 return;
             }
         }
 
-        // Guard against malformed bodies that can infinite-loop facil.io's parser.
-        unsigned int cl_len;
-        const char *cl_str = fiow_get_header(h, "content-length", 14, &cl_len);
-        if (cl_str && cl_len > 0) {
-            char *endptr;
-            unsigned long body_len = strtoul(cl_str, &endptr, 10);
-            if (endptr == cl_str || body_len > 4096) {
-                log_request(h, 413);
-                http_send_error(h, 413);
-                return;
-            }
-            http_parse_body(h);
-        }
+        http_parse_body(h);
     }
 
     if (request_handler) {
@@ -159,6 +150,8 @@ void fiow_listen(const char *port) {
         .on_upgrade = on_upgrade,
         .public_folder = NULL,
         .public_folder_length = 0,
+        .max_body_size = 4096,
+        .timeout = 30,
         .log = 0);
     fio_start(.threads = 1, .workers = 1);
 }

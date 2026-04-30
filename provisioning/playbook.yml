@@ -252,6 +252,15 @@
         - security.conf
       notify: Rebuild nginx config
 
+    - name: Deploy global nginx http-scope configs
+      template:
+        src: "templates/{{ item }}"
+        dest: "/etc/nginx/conf.d/qckchs-{{ item }}"
+        mode: "0644"
+      loop:
+        - ratelimit.conf
+      notify: Reload nginx
+
     # -------------------------------------------------------------------------
     # Dokku static assets plugin
     # -------------------------------------------------------------------------
@@ -364,6 +373,11 @@
 
     - name: Rebuild nginx config
       command: dokku proxy:build-config {{ app_name }}
+
+    - name: Reload nginx
+      service:
+        name: nginx
+        state: reloaded
 
     # - name: Restart litestream
     #   service:

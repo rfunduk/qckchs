@@ -10,7 +10,7 @@ import "core:sync/chan"
 import "core:thread"
 import "core:time"
 
-import fio "lib:facilio"
+import mg "lib:mongoose"
 
 import "chess"
 import "mimir"
@@ -81,15 +81,15 @@ init_bot_configs :: proc() {
 	set_pk :: proc(pk: ^Player_Key, s: string) { copy(pk[:], s) }
 
 	// Load PKs from mimir.json (path overridable via MIMIR_PATH)
-	mimir_path_env, _ := os.lookup_env("MIMIR_PATH")
+	mimir_path_env, _ := os.lookup_env_alloc("MIMIR_PATH", context.allocator)
 	mimir_path := len(mimir_path_env) > 0 ? mimir_path_env : "mimir.json"
-	data, ok := os.read_entire_file(mimir_path)
-	if !ok { log.fatalf("Failed to read %s — bot PKs must be configured", mimir_path) }
+	data, err := os.read_entire_file_from_path(mimir_path, context.allocator)
+	if err != nil { log.fatalf("Failed to read %s — bot PKs must be configured", mimir_path) }
 
 	keys: Mimir_Keys
-	err := json.unmarshal(data, &keys)
+	jerr := json.unmarshal(data, &keys)
 	delete(data)
-	if err != nil { log.fatalf("Failed to parse mimir.json: %v", err) }
+	if jerr != nil { log.fatalf("Failed to parse mimir.json: %v", jerr) }
 	defer {
 		delete(keys.easy)
 		delete(keys.medium)
@@ -256,7 +256,7 @@ bot_worker :: proc(t: ^thread.Thread) {
 		from := mimir.move_from(best)
 		to := mimir.move_to(best)
 
-		fio.defer_task(bot_move_callback, pack_bot_move({req.game_id, from, to}))
+		mg.defer_task(bot_move_callback, pack_bot_move({req.game_id, from, to}))
 	}
 
 	log.infof("Bot worker exiting: %s", config.name)

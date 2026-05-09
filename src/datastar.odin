@@ -3,14 +3,14 @@ package qckchs
 import "core:log"
 import "core:strings"
 
-import fio "lib:facilio"
+import mg "lib:mongoose"
 
 // Write SSE data, close connection on failure (write queue overflow / dead connection).
-sse_write_or_close :: proc(sse: fio.SSE, event: cstring, data: string) {
-	result := fio.sse_write(sse, event, raw_data(data), u32(len(data)))
+sse_write_or_close :: proc(sse: mg.SSE, event: cstring, data: string) {
+	result := mg.sse_write(sse, event, raw_data(data), u32(len(data)))
 	if result < 0 {
 		log.warnf("SSE write failed (%s, %d bytes), closing connection", event, len(data))
-		fio.sse_close(sse)
+		mg.sse_close(sse)
 	}
 }
 
@@ -39,13 +39,13 @@ sse_elements :: proc(b: ^strings.Builder, html: string) {
 	}
 }
 
-ds_patch :: proc(sse: fio.SSE, html: string) {
+ds_patch :: proc(sse: mg.SSE, html: string) {
 	b := strings.builder_make()
 	sse_elements(&b, html)
 	sse_write_or_close(sse, "datastar-patch-elements", strings.to_string(b))
 }
 
-ds_patch_el :: proc(sse: fio.SSE, selector: string, html: string) {
+ds_patch_el :: proc(sse: mg.SSE, selector: string, html: string) {
 	b := strings.builder_make()
 	strings.write_string(&b, "selector ")
 	strings.write_string(&b, selector)
@@ -54,7 +54,7 @@ ds_patch_el :: proc(sse: fio.SSE, selector: string, html: string) {
 	sse_write_or_close(sse, "datastar-patch-elements", strings.to_string(b))
 }
 
-ds_morph :: proc(req: fio.Req, html: string) {
+ds_morph :: proc(req: mg.Req, html: string) {
 	b := strings.builder_make()
 	strings.write_string(
 		&b,
@@ -63,16 +63,16 @@ ds_morph :: proc(req: fio.Req, html: string) {
 	http_elements(&b, html)
 	strings.write_string(&b, "\r\n\r\n")
 	data := strings.to_string(b)
-	fio.respond(req, 200, "text/event-stream", raw_data(data), u32(len(data)), "no-store")
+	mg.respond(req, 200, "text/event-stream", raw_data(data), u32(len(data)), "no-store")
 }
 
-ds_morph_el :: proc(req: fio.Req, selector: string, html: string) {
+ds_morph_el :: proc(req: mg.Req, selector: string, html: string) {
 	b := strings.builder_make()
 	sse_append_morph_el(&b, selector, html)
 	sse_respond(req, &b)
 }
 
-ds_append_el :: proc(sse: fio.SSE, selector: string, html: string) {
+ds_append_el :: proc(sse: mg.SSE, selector: string, html: string) {
 	b := strings.builder_make()
 	strings.write_string(&b, "selector ")
 	strings.write_string(&b, selector)
@@ -81,7 +81,7 @@ ds_append_el :: proc(sse: fio.SSE, selector: string, html: string) {
 	sse_write_or_close(sse, "datastar-patch-elements", strings.to_string(b))
 }
 
-ds_prepend_el :: proc(sse: fio.SSE, selector: string, html: string) {
+ds_prepend_el :: proc(sse: mg.SSE, selector: string, html: string) {
 	b := strings.builder_make()
 	strings.write_string(&b, "selector ")
 	strings.write_string(&b, selector)
@@ -90,7 +90,7 @@ ds_prepend_el :: proc(sse: fio.SSE, selector: string, html: string) {
 	sse_write_or_close(sse, "datastar-patch-elements", strings.to_string(b))
 }
 
-ds_remove_el :: proc(sse: fio.SSE, selector: string) {
+ds_remove_el :: proc(sse: mg.SSE, selector: string) {
 	b := strings.builder_make()
 	strings.write_string(&b, "selector ")
 	strings.write_string(&b, selector)
@@ -98,7 +98,7 @@ ds_remove_el :: proc(sse: fio.SSE, selector: string) {
 	sse_write_or_close(sse, "datastar-patch-elements", strings.to_string(b))
 }
 
-ds_patch_signals :: proc(sse: fio.SSE, signals: string) {
+ds_patch_signals :: proc(sse: mg.SSE, signals: string) {
 	b := strings.builder_make()
 	strings.write_string(&b, "signals ")
 	strings.write_string(&b, signals)
@@ -119,33 +119,33 @@ sse_append_morph_el :: proc(b: ^strings.Builder, selector: string, html: string)
 	strings.write_string(b, "\r\n\r\n")
 }
 
-sse_respond :: proc(req: fio.Req, b: ^strings.Builder) {
+sse_respond :: proc(req: mg.Req, b: ^strings.Builder) {
 	data := strings.to_string(b^)
-	fio.respond(req, 200, "text/event-stream", raw_data(data), u32(len(data)), "no-store")
+	mg.respond(req, 200, "text/event-stream", raw_data(data), u32(len(data)), "no-store")
 }
 
 // --- Signal parsing ---
 
 
-udata_pk :: proc(ud: ^fio.SSE_Udata) -> (Player_Key, bool) {
+udata_pk :: proc(ud: ^mg.SSE_Udata) -> (Player_Key, bool) {
 	if ud.pk[0] == 0 { return {}, false }
 	pk: Player_Key
 	copy(pk[:], string(ud.pk[:32]))
 	return pk, true
 }
 
-get_cookie_pk :: proc(req: fio.Req) -> (Player_Key, bool) {
+get_cookie_pk :: proc(req: mg.Req) -> (Player_Key, bool) {
 	cookie_len: u32
-	cookie_cstr := fio.get_cookie(req, "pk", 2, &cookie_len)
+	cookie_cstr := mg.get_cookie(req, "pk", 2, &cookie_len)
 	if cookie_cstr == nil || cookie_len != 32 { return {}, false }
 	pk: Player_Key
 	copy(pk[:], string(cookie_cstr)[:32])
 	return pk, true
 }
 
-get_form_pk :: proc(req: fio.Req) -> (Player_Key, bool) {
+get_form_pk :: proc(req: mg.Req) -> (Player_Key, bool) {
 	val_len: u32
-	val_cstr := fio.get_form_param(req, "pk", 2, &val_len)
+	val_cstr := mg.get_form_param(req, "pk", 2, &val_len)
 	if val_cstr == nil || val_len != 32 { return {}, false }
 	val := strings.clone_from_cstring(val_cstr)
 	key: Player_Key
@@ -155,6 +155,6 @@ get_form_pk :: proc(req: fio.Req) -> (Player_Key, bool) {
 
 // --- JSON SSE ---
 
-sse_write_json :: proc(sse: fio.SSE, data: string) {
+sse_write_json :: proc(sse: mg.SSE, data: string) {
 	sse_write_or_close(sse, "game-state", data)
 }

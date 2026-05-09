@@ -8,7 +8,7 @@ import "core:mem"
 import "core:os"
 import "core:strings"
 
-import fio "lib:facilio"
+import mg "lib:mongoose"
 
 import "mimir"
 
@@ -93,9 +93,9 @@ main :: proc() {
 		return
 	}
 
-	fio.set_log(fio_log)
+	mg.set_log(on_log)
 
-	origin, has_origin := os.lookup_env("ORIGIN")
+	origin, has_origin := os.lookup_env_alloc("ORIGIN", context.allocator)
 	when !ODIN_DEBUG {
 		if !has_origin || len(origin) == 0 || !strings.has_prefix(origin, "https://") {
 			log.fatal("ORIGIN env var must be set in production (https://example.com)")
@@ -106,7 +106,7 @@ main :: proc() {
 	}
 
 	if len(origin) > 0 {
-		fio.set_origin(strings.clone_to_cstring(origin))
+		mg.set_origin(strings.clone_to_cstring(origin))
 	}
 
 	engine_init()
@@ -118,14 +118,14 @@ main :: proc() {
 	defer db_shutdown()
 	defer cleanup_templates()
 
-	fio.on_request(handle_request)
-	fio.on_stream("/stream/", handle_stream_open, handle_stream_close)
-	fio.on_sse_message(handle_game_update)
-	fio.run_every(1000, lifecycle_tick, nil)
+	mg.on_request(handle_request)
+	mg.on_stream("/stream/", handle_stream_open, handle_stream_close)
+	mg.on_sse_message(handle_game_update)
+	mg.run_every(1000, lifecycle_tick, nil)
 
-	port, found := os.lookup_env("PORT")
+	port, found := os.lookup_env_alloc("PORT", context.allocator)
 	portc := strings.clone_to_cstring(found ? port : "8080")
-	fio.listen(portc)
+	mg.listen(portc)
 	defer delete(port)
 	defer delete(portc)
 }

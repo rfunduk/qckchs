@@ -8,7 +8,7 @@ import "core:strconv"
 import "core:strings"
 import "core:time"
 
-import fio "lib:facilio"
+import mg "lib:mongoose"
 
 import "chess"
 
@@ -73,18 +73,18 @@ Player_Op :: enum u8 {
 publish_lobby :: proc(id: Game_Id, op: Lobby_Op) {
 	channel: string = "lobby"
 	msg := fmt.tprintf("%c:%d", rune(u8(op)), id)
-	fio.publish(raw_data(channel), u32(len(channel)), raw_data(msg), u32(len(msg)))
+	mg.publish(raw_data(channel), u32(len(channel)), raw_data(msg), u32(len(msg)))
 }
 
 publish_game :: proc(code: string) {
 	channel := fmt.aprintf("game:%s", code)
-	fio.publish(raw_data(channel), u32(len(channel)), nil, 0)
+	mg.publish(raw_data(channel), u32(len(channel)), nil, 0)
 }
 
 publish_player :: proc(player_id: i64, game_id: Game_Id, op: Player_Op) {
 	channel := fmt.tprintf("player:%d", player_id)
 	msg := fmt.tprintf("%c:%d", rune(u8(op)), game_id)
-	fio.publish(raw_data(channel), u32(len(channel)), raw_data(msg), u32(len(msg)))
+	mg.publish(raw_data(channel), u32(len(channel)), raw_data(msg), u32(len(msg)))
 }
 
 publish_players :: proc(game: ^Game, game_id: Game_Id, op: Player_Op) {
@@ -96,12 +96,12 @@ publish_players :: proc(game: ^Game, game_id: Game_Id, op: Player_Op) {
 
 // --- Stream entry points ---
 
-handle_stream_open :: proc "c" (sse: fio.SSE) {
+handle_stream_open :: proc "c" (sse: mg.SSE) {
 	context = global_context
 	arena: virtual.Arena
 	if virtual.arena_init_growing(&arena) != .None {
 		log.error("Failed to init SSE arena")
-		fio.sse_close(sse)
+		mg.sse_close(sse)
 		return
 	}
 	defer virtual.arena_destroy(&arena)
@@ -110,14 +110,14 @@ handle_stream_open :: proc "c" (sse: fio.SSE) {
 	route_game_stream(sse)
 }
 
-handle_stream_close :: proc "c" (_sse: fio.SSE) {
+handle_stream_close :: proc "c" (_sse: mg.SSE) {
 	context = global_context
 	log.info("Stream closed")
 }
 
 // --- Update handlers ---
 
-handle_game_update :: proc "c" (sse: fio.SSE, udata: rawptr, msg_ptr: [^]u8, msg_len: u32) {
+handle_game_update :: proc "c" (sse: mg.SSE, udata: rawptr, msg_ptr: [^]u8, msg_len: u32) {
 	context = global_context
 	arena: virtual.Arena
 	if virtual.arena_init_growing(&arena) != .None { return }
@@ -184,7 +184,7 @@ handle_game_update :: proc "c" (sse: fio.SSE, udata: rawptr, msg_ptr: [^]u8, msg
 	}
 }
 
-handle_player_update :: proc(sse: fio.SSE, player_id: i64, msg_ptr: [^]u8, msg_len: u32) {
+handle_player_update :: proc(sse: mg.SSE, player_id: i64, msg_ptr: [^]u8, msg_len: u32) {
 	if msg_len < 3 || msg_ptr == nil { return }
 	msg := string(msg_ptr[:msg_len])
 	op := msg[0]
@@ -226,16 +226,16 @@ handle_player_update :: proc(sse: fio.SSE, player_id: i64, msg_ptr: [^]u8, msg_l
 
 // --- Stream route handlers ---
 
-route_game_stream :: proc(sse: fio.SSE) {
-	udata_raw := fio.sse_get_udata(sse)
+route_game_stream :: proc(sse: mg.SSE) {
+	udata_raw := mg.sse_get_udata(sse)
 	if udata_raw == nil {
 		log.warn("SSE stream opened with no udata")
-		fio.sse_close(sse)
+		mg.sse_close(sse)
 		return
 	}
-	defer fio.free(udata_raw)
+	defer mg.free(udata_raw)
 
-	ud := cast(^fio.SSE_Udata)udata_raw
+	ud := cast(^mg.SSE_Udata)udata_raw
 
 	// Read suffix — game code, optionally followed by /json
 	code_len := 0
@@ -258,13 +258,13 @@ route_game_stream :: proc(sse: fio.SSE) {
 	id, ok := game_id_from_code(code)
 	if !ok {
 		log.warnf("SSE stream: invalid game code '%s'", code)
-		fio.sse_close(sse)
+		mg.sse_close(sse)
 		return
 	}
 
 	if id not_in g.games {
 		log.warnf("SSE stream: game %d not found", id)
-		fio.sse_close(sse)
+		mg.sse_close(sse)
 		return
 	}
 
@@ -318,13 +318,13 @@ route_game_stream :: proc(sse: fio.SSE) {
 	// Publish before subscribing so the joiner doesn't double-receive,
 	// but the waiting player gets notified.
 	if result == .White_Joined || result == .Black_Joined {
-		fio.publish(raw_data(channel), u32(len(channel)), nil, 0)
+		mg.publish(raw_data(channel), u32(len(channel)), nil, 0)
 		publish_lobby(id, .Add)
 		publish_players(game, id, .Add)
 	}
 
 	udata := pack_sub({kind = .Game, id = u32(id), viewer = viewer, is_json = is_json})
-	fio.sse_subscribe(sse, raw_data(channel), u32(len(channel)), udata)
+	mg.sse_subscribe(sse, raw_data(channel), u32(len(channel)), udata)
 
 	if is_json {
 		json_data := game_json(game, viewer, now)
@@ -336,17 +336,17 @@ route_game_stream :: proc(sse: fio.SSE) {
 	}
 }
 
-route_player_stream :: proc(sse: fio.SSE, player_code_suffix: string) {
+route_player_stream :: proc(sse: mg.SSE, player_code_suffix: string) {
 	player_id, ok := player_id_from_code(player_code_suffix)
 	if !ok {
 		log.warnf("Player stream: invalid code '%s'", player_code_suffix)
-		fio.sse_close(sse)
+		mg.sse_close(sse)
 		return
 	}
 
 	channel := fmt.aprintf("player:%d", player_id)
 	udata := pack_sub({kind = .Player, id = u32(player_id)})
-	fio.sse_subscribe(sse, raw_data(channel), u32(len(channel)), udata)
+	mg.sse_subscribe(sse, raw_data(channel), u32(len(channel)), udata)
 
 	_, pk_ok := db_get_player_key(player_id)
 	if !pk_ok {
@@ -357,9 +357,9 @@ route_player_stream :: proc(sse: fio.SSE, player_code_suffix: string) {
 	log.infof("Player stream opened for player %d", player_id)
 }
 
-route_lobby_stream :: proc(sse: fio.SSE) {
+route_lobby_stream :: proc(sse: mg.SSE) {
 	log.info("Lobby stream opened")
 
 	channel: string = "lobby"
-	fio.sse_subscribe(sse, raw_data(channel), u32(len(channel)), nil)
+	mg.sse_subscribe(sse, raw_data(channel), u32(len(channel)), nil)
 }

@@ -1,6 +1,6 @@
-package facilio
+package mongoose
 
-foreign import wrapper "system:facilio_wrapper"
+foreign import wrapper "system:mongoose_wrapper"
 
 Req :: distinct rawptr
 SSE :: distinct rawptr
@@ -17,11 +17,10 @@ SSE_Handler :: #type proc "c" (sse: SSE)
 SSE_Msg_Handler :: #type proc "c" (sse: SSE, udata: rawptr, msg: [^]u8, msg_len: u32)
 Log_Fn :: #type proc "c" (level: i32, msg: [^]u8, len: u32)
 
-@(link_prefix = "fiow_")
+@(link_prefix = "mgw_")
 @(default_calling_convention = "c")
 foreign wrapper {
 	listen :: proc(port: cstring) ---
-	start :: proc() ---
 	on_request :: proc(handler: Handler) ---
 	on_stream :: proc(prefix: cstring, on_open: SSE_Handler, on_close: SSE_Handler) ---
 	respond :: proc(req: Req, status: i32, content_type: cstring, body: [^]u8, body_len: u32, cache_control: cstring) ---

@@ -4,7 +4,7 @@ import "core:log"
 import "core:os"
 import "core:sync"
 
-fio_log :: proc "c" (level: i32, msg: [^]u8, len: u32) {
+on_log :: proc "c" (level: i32, msg: [^]u8, len: u32) {
 	context = global_context
 	s := string(msg[:len])
 	//odinfmt: disable

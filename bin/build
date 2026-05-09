@@ -67,7 +67,7 @@ $DIR/bin/codegen
 # Build
 #
 
-FACILIO_DIR="$DIR/vendor/facil.io-0.7.6"
+MONGOOSE_DIR="$DIR/vendor/mongoose-7.14"
 MUSTACHE4C_DIR="$DIR/vendor/mustache4c"
 
 if [ "$TARGET" == "debug" ]; then
@@ -77,18 +77,13 @@ else
 fi
 
 cc -c $CFLAGS \
-	"$DIR/lib/facilio/wrapper.c" \
-	-I "$FACILIO_DIR/libdump/include/" \
+	"$DIR/lib/mongoose/wrapper.c" \
+	-I "$MONGOOSE_DIR" \
 	-o "$OUT_DIR/wrapper.o"
 
-cc -c $CFLAGS \
-	"$DIR/lib/facilio/log_override.c" \
-	-o "$OUT_DIR/log_override.o"
-
 TMPDIR_AR=$(mktemp -d)
-(cd "$TMPDIR_AR" && ar x "$FACILIO_DIR/libfacil.a")
-ar rcs "$OUT_DIR/libfacilio_wrapper.a" \
-	"$OUT_DIR/log_override.o" \
+(cd "$TMPDIR_AR" && ar x "$MONGOOSE_DIR/libmongoose.a")
+ar rcs "$OUT_DIR/libmongoose_wrapper.a" \
 	"$OUT_DIR/wrapper.o" \
 	"$TMPDIR_AR"/*.o
 rm -rf "$TMPDIR_AR"

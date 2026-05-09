@@ -6,34 +6,34 @@ import "core:path/filepath"
 import "core:strconv"
 import "core:strings"
 
-import fio "lib:facilio"
+import mg "lib:mongoose"
 
 import "chess"
 
 // --- HTTP helpers ---
 
-get_path :: proc(req: fio.Req) -> string {
+get_path :: proc(req: mg.Req) -> string {
 	path_len: u32
-	path_ptr := fio.get_path(req, &path_len)
+	path_ptr := mg.get_path(req, &path_len)
 	return string(path_ptr[:path_len])
 }
 
-get_body :: proc(req: fio.Req) -> (string, bool) {
+get_body :: proc(req: mg.Req) -> (string, bool) {
 	body_len: u32
-	body_ptr := fio.get_body(req, &body_len)
+	body_ptr := mg.get_body(req, &body_len)
 	if body_ptr == nil || body_len == 0 { return "", false }
 	return string(body_ptr[:body_len]), true
 }
 
-get_method :: proc(req: fio.Req) -> string {
+get_method :: proc(req: mg.Req) -> string {
 	method_len: u32
-	method_ptr := fio.get_method(req, &method_len)
+	method_ptr := mg.get_method(req, &method_len)
 	return string(method_ptr[:method_len])
 }
 
-get_query :: proc(req: fio.Req) -> string {
+get_query :: proc(req: mg.Req) -> string {
 	query_len: u32
-	query_ptr := fio.get_query(req, &query_len)
+	query_ptr := mg.get_query(req, &query_len)
 	if query_ptr == nil || query_len == 0 { return "" }
 	return string(query_ptr[:query_len])
 }
@@ -49,32 +49,32 @@ get_query_param :: proc(query, name: string) -> string {
 	return rest[:end]
 }
 
-respond_html :: proc(req: fio.Req, html: string) {
-	fio.respond(req, 200, "text/html", raw_data(html), u32(len(html)), "no-store")
+respond_html :: proc(req: mg.Req, html: string) {
+	mg.respond(req, 200, "text/html", raw_data(html), u32(len(html)), "no-store")
 }
 
-respond_ok :: proc(req: fio.Req) {
+respond_ok :: proc(req: mg.Req) {
 	msg: string = "OK"
-	fio.respond(req, 200, "text/plain", raw_data(msg), u32(len(msg)), "no-store")
+	mg.respond(req, 200, "text/plain", raw_data(msg), u32(len(msg)), "no-store")
 }
 
-respond_404 :: proc(req: fio.Req) {
+respond_404 :: proc(req: mg.Req) {
 	msg: string = "Not found"
-	fio.respond(req, 404, "text/plain", raw_data(msg), u32(len(msg)), "no-store")
+	mg.respond(req, 404, "text/plain", raw_data(msg), u32(len(msg)), "no-store")
 }
 
-respond_400 :: proc(req: fio.Req) {
+respond_400 :: proc(req: mg.Req) {
 	msg: string = "Bad request"
-	fio.respond(req, 400, "text/plain", raw_data(msg), u32(len(msg)), "no-store")
+	mg.respond(req, 400, "text/plain", raw_data(msg), u32(len(msg)), "no-store")
 }
 
-respond_500 :: proc(req: fio.Req) {
+respond_500 :: proc(req: mg.Req) {
 	msg: string = "Internal server error"
-	fio.respond(req, 500, "text/plain", raw_data(msg), u32(len(msg)), "no-store")
+	mg.respond(req, 500, "text/plain", raw_data(msg), u32(len(msg)), "no-store")
 }
 
-respond_redirect :: proc(req: fio.Req, location: string) {
-	fio.redirect(req, raw_data(location), u32(len(location)))
+respond_redirect :: proc(req: mg.Req, location: string) {
+	mg.redirect(req, raw_data(location), u32(len(location)))
 }
 
 // --- Routing helpers ---
@@ -113,7 +113,7 @@ content_type_for :: proc(path: string) -> cstring {
 }
 //odinfmt: enable
 
-require_claimed :: proc(req: fio.Req, current_path: string) -> bool {
+require_claimed :: proc(req: mg.Req, current_path: string) -> bool {
 	pk, ok := get_cookie_pk(req)
 	if !ok || !db_is_player_claimed(pk) {
 		location := fmt.aprintf("/profile?next=%s", current_path)
@@ -123,7 +123,7 @@ require_claimed :: proc(req: fio.Req, current_path: string) -> bool {
 	return false
 }
 
-viewer_from_cookie :: proc(req: fio.Req, game: Game) -> chess.Player {
+viewer_from_cookie :: proc(req: mg.Req, game: Game) -> chess.Player {
 	pk, ok := get_cookie_pk(req)
 	if !ok { return .None }
 	if pk == game.white_key { return .White }

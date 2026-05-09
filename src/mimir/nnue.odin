@@ -32,8 +32,8 @@ read_u16_le :: proc(data: []u8, offset: int) -> u16 {
 }
 
 init_nnue :: proc(path: string = "mimir.nnue") {
-	data, ok := os.read_entire_file(path)
-	if !ok {
+	data, err := os.read_entire_file_from_path(path, context.allocator)
+	if err != nil {
 		fmt.eprintfln("NNUE: %s not found, using HCE", path)
 		return
 	}
@@ -123,8 +123,8 @@ destroy_nnue :: proc() {
 }
 
 load_nnue_weights :: proc(path: string) -> (^NNUE_Weights, bool) {
-	data, ok := os.read_entire_file(path)
-	if !ok {
+	data, err := os.read_entire_file_from_path(path, context.allocator)
+	if err != nil {
 		fmt.eprintfln("NNUE: %s not found", path)
 		return nil, false
 	}

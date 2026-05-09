@@ -7,34 +7,34 @@ mkdir -p "$DIR/vendor"
 mkdir -p "$DIR/build"
 
 # --- versions ---
-FACILIO_VERSION="0.7.6"
+MONGOOSE_VERSION="7.14"
 DATASTAR_VERSION="v1.0.0-RC.8"
 MUSTACHE4C_COMMIT="74911a1ad2b78d1325b14853aa63d566622ca880"
 
-
-echo "========================="
-echo "  facil.io $FACILIO_VERSION"
-echo "========================="
-
-FACILIO_URL="https://github.com/boazsegev/facil.io/archive/refs/tags/${FACILIO_VERSION}.tar.gz"
-FACILIO_DIR="$DIR/vendor/facil.io-${FACILIO_VERSION}"
-
-if [ ! -d "$FACILIO_DIR" ]; then
-	echo "Downloading: $FACILIO_URL"
-	curl -sL "$FACILIO_URL" | tar -xzf - -C "$DIR/vendor/"
-fi
-
 CFLAGS="-O2 -DNDEBUG -fno-asynchronous-unwind-tables"
 
-cd "$FACILIO_DIR"
-echo "Generating libdump..."
-make libdump --quiet
+echo "========================="
+echo "  mongoose $MONGOOSE_VERSION"
+echo "========================="
+
+MONGOOSE_DIR="$DIR/vendor/mongoose-${MONGOOSE_VERSION}"
+MONGOOSE_URL="https://github.com/cesanta/mongoose/archive/refs/tags/${MONGOOSE_VERSION}.tar.gz"
+
+if [ ! -d "$MONGOOSE_DIR" ]; then
+	echo "Downloading: $MONGOOSE_URL"
+	mkdir -p "$MONGOOSE_DIR"
+	curl -sL "$MONGOOSE_URL" \
+		| tar -xzf - --strip-components=1 -C "$MONGOOSE_DIR" \
+		"mongoose-${MONGOOSE_VERSION}/mongoose.c" \
+		"mongoose-${MONGOOSE_VERSION}/mongoose.h"
+fi
+
+cd "$MONGOOSE_DIR"
 echo "Building static library..."
-cd "$FACILIO_DIR/libdump"
-cc -c $CFLAGS src/*.c -I include/
-rm -f "$FACILIO_DIR/libfacil.a"
-ar rcs "$FACILIO_DIR/libfacil.a" *.o
-rm -f *.o
+cc -c $CFLAGS mongoose.c -o mongoose.o
+rm -f libmongoose.a
+ar rcs libmongoose.a mongoose.o
+rm -f mongoose.o
 echo "Done."
 
 

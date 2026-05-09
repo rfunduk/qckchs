@@ -315,11 +315,11 @@ init_egtb :: proc() {
 	if err == nil {
 		defer os.close(dh)
 
-		entries, read_err := os.read_dir(dh, 256)
+		entries, read_err := os.read_dir(dh, 256, context.allocator)
 		if read_err == nil {
 			defer {
 				for &entry in entries {
-					os.file_info_delete(entry)
+					os.file_info_delete(entry, context.allocator)
 				}
 				delete(entries)
 			}
@@ -341,8 +341,8 @@ init_egtb :: proc() {
 load_egtb_file :: proc(path: string) -> bool {
 	if egtb_table_count >= EGTB_MAX_TABLES { return false }
 
-	data, ok := os.read_entire_file(path)
-	if !ok { return false }
+	data, err := os.read_entire_file_from_path(path, context.allocator)
+	if err != nil { return false }
 
 	if len(data) < EGTB_HEADER_SIZE { return false }
 

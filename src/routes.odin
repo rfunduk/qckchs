@@ -8,13 +8,13 @@ import "core:strconv"
 import "core:strings"
 import "core:time"
 
-import fio "lib:facilio"
+import mg "lib:mongoose"
 
 import "chess"
 
 // --- Router entry point ---
 
-handle_request :: proc "c" (req: fio.Req) {
+handle_request :: proc "c" (req: mg.Req) {
 	context = global_context
 	arena: virtual.Arena
 	if virtual.arena_init_growing(&arena) != .None {
@@ -63,13 +63,13 @@ handle_request :: proc "c" (req: fio.Req) {
 
 // --- Route handlers ---
 
-route_static :: proc(req: fio.Req, path: string) {
+route_static :: proc(req: mg.Req, path: string) {
 	// Strip leading slash to get filesystem path relative to CWD
 	fs_path := path[1:]
 	if strings.contains(fs_path, "..") { respond_404(req); return }
-	data, ok := os.read_entire_file(fs_path)
-	if !ok { respond_404(req); return }
-	fio.respond(
+	data, err := os.read_entire_file_from_path(fs_path, context.allocator)
+	if err != nil { respond_404(req); return }
+	mg.respond(
 		req,
 		200,
 		content_type_for(path),
@@ -79,7 +79,7 @@ route_static :: proc(req: fio.Req, path: string) {
 	)
 }
 
-route_index :: proc(req: fio.Req) {
+route_index :: proc(req: mg.Req) {
 	joinable := make([dynamic]Mini_Game_Data)
 	games := make([dynamic]Mini_Game_Data)
 	for id, &game in g.games {
@@ -101,7 +101,7 @@ route_index :: proc(req: fio.Req) {
 	respond_html(req, html)
 }
 
-route_new_game :: proc(req: fio.Req, path: string) {
+route_new_game :: proc(req: mg.Req, path: string) {
 	if require_claimed(req, path) { return }
 
 	pk, pk_ok := get_cookie_pk(req)
@@ -122,7 +122,7 @@ route_new_game :: proc(req: fio.Req, path: string) {
 	respond_redirect(req, fmt.aprintf("/games/%s", g.games[id].code))
 }
 
-route_profile :: proc(req: fio.Req, path: string) {
+route_profile :: proc(req: mg.Req, path: string) {
 	public := strings.has_prefix(path, "/profile/")
 
 	// Resolve the player key: from URL code (public) or cookie (own profile)
@@ -152,12 +152,12 @@ route_profile :: proc(req: fio.Req, path: string) {
 			if !pk_ok { respond_400(req); return }
 
 			name_len: u32
-			name_cstr := fio.get_form_param(req, "name", 4, &name_len)
+			name_cstr := mg.get_form_param(req, "name", 4, &name_len)
 			name := name_cstr != nil ? strings.clone_from_cstring(name_cstr)[:name_len] : ""
 			if len(name) > 20 { name = name[:20] }
 
 			next_len: u32
-			next_cstr := fio.get_form_param(req, "next", 4, &next_len)
+			next_cstr := mg.get_form_param(req, "next", 4, &next_len)
 			next_raw := next_cstr != nil ? strings.clone_from_cstring(next_cstr)[:next_len] : "/"
 			next := strings.has_prefix(next_raw, "/") && !strings.has_prefix(next_raw, "//") ? next_raw : "/"
 
@@ -254,7 +254,7 @@ route_profile :: proc(req: fio.Req, path: string) {
 	respond_html(req, html)
 }
 
-route_logout :: proc(req: fio.Req) {
+route_logout :: proc(req: mg.Req) {
 	pk, pk_ok := get_cookie_pk(req)
 	if !pk_ok {
 		respond_redirect(req, "/")
@@ -272,7 +272,7 @@ route_logout :: proc(req: fio.Req) {
 	respond_html(req, html)
 }
 
-route_game :: proc(req: fio.Req) {
+route_game :: proc(req: mg.Req) {
 	p, ok := path_params(get_path(req), "/games/", 1)
 	if !ok { respond_404(req); return }
 	code := p[0]
@@ -347,7 +347,7 @@ route_game :: proc(req: fio.Req) {
 	respond_html(req, html)
 }
 
-route_make_public :: proc(req: fio.Req) {
+route_make_public :: proc(req: mg.Req) {
 	p, ok := path_params(get_path(req), "/make-public/", 1)
 	if !ok { respond_404(req); return }
 	code := p[0]
@@ -367,10 +367,10 @@ route_make_public :: proc(req: fio.Req) {
 	publish_lobby(id, .Add)
 	publish_game(code)
 
-	fio.respond(req, 204, "text/plain", nil, 0, "no-store")
+	mg.respond(req, 204, "text/plain", nil, 0, "no-store")
 }
 
-route_move :: proc(req: fio.Req) {
+route_move :: proc(req: mg.Req) {
 	p, ok := path_params(get_path(req), "/move/", 3)
 	if !ok { respond_400(req); return }
 	code := p[0]
@@ -431,10 +431,10 @@ route_move :: proc(req: fio.Req) {
 		publish_players(game, id, .Update)
 		if game.bot != nil { notify_bot(game) }
 	}
-	fio.respond(req, 204, "text/plain", nil, 0, "no-store")
+	mg.respond(req, 204, "text/plain", nil, 0, "no-store")
 }
 
-route_check :: proc(req: fio.Req) {
+route_check :: proc(req: mg.Req) {
 	p, ok := path_params(get_path(req), "/check/", 1)
 	if !ok { respond_404(req); return }
 	code := p[0]
@@ -454,10 +454,10 @@ route_check :: proc(req: fio.Req) {
 		}
 	}
 
-	fio.respond(req, 204, "text/plain", nil, 0, "no-store")
+	mg.respond(req, 204, "text/plain", nil, 0, "no-store")
 }
 
-route_ping :: proc(req: fio.Req) {
+route_ping :: proc(req: mg.Req) {
 	p, ok := path_params(get_path(req), "/ping/", 1)
 	if !ok { respond_404(req); return }
 	code := p[0]
@@ -466,7 +466,7 @@ route_ping :: proc(req: fio.Req) {
 	if !id_ok || id not_in g.games { respond_404(req); return }
 
 	pk, pk_ok := get_cookie_pk(req)
-	if !pk_ok { fio.respond(req, 204, "text/plain", nil, 0, "no-store"); return }
+	if !pk_ok { mg.respond(req, 204, "text/plain", nil, 0, "no-store"); return }
 
 	game := &g.games[id]
 	now := time.to_unix_nanoseconds(time.now())
@@ -477,10 +477,10 @@ route_ping :: proc(req: fio.Req) {
 		game.black_last_seen = now
 	}
 
-	fio.respond(req, 204, "text/plain", nil, 0, "no-store")
+	mg.respond(req, 204, "text/plain", nil, 0, "no-store")
 }
 
-route_replay :: proc(req: fio.Req) {
+route_replay :: proc(req: mg.Req) {
 	p, ok := path_params(get_path(req), "/replay/", 2)
 	if !ok { respond_400(req); return }
 	code := p[0]

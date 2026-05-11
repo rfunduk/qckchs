@@ -116,6 +116,16 @@ static void on_request(http_s *h) {
             }
         }
 
+        // Reject multipart — app accepts none, and facil.io's multipart
+        // parser spins on malformed boundaries (scanner-induced 100% CPU).
+        unsigned int ct_len;
+        const char *ct = fiow_get_header(h, "content-type", 12, &ct_len);
+        if (ct && ct_len >= 10 && memcmp(ct, "multipart/", 10) == 0) {
+            log_request(h, 415);
+            http_send_error(h, 415);
+            return;
+        }
+
         http_parse_body(h);
     }
 

@@ -63,7 +63,7 @@ db_thread: ^thread.Thread
 db_init :: proc() {
 	status: sqlite.Status
 
-	db_path_env, _ := os.lookup_env("DB_PATH")
+	db_path_env, _ := os.lookup_env_alloc("DB_PATH", context.allocator)
 	db_path := strings.clone_to_cstring(len(db_path_env) > 0 ? db_path_env : "qckchs.db")
 	defer delete(db_path)
 

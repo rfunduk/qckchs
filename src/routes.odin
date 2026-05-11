@@ -67,8 +67,8 @@ route_static :: proc(req: fio.Req, path: string) {
 	// Strip leading slash to get filesystem path relative to CWD
 	fs_path := path[1:]
 	if strings.contains(fs_path, "..") { respond_404(req); return }
-	data, ok := os.read_entire_file(fs_path)
-	if !ok { respond_404(req); return }
+	data, err := os.read_entire_file_from_path(fs_path, context.allocator)
+	if err != nil { respond_404(req); return }
 	fio.respond(
 		req,
 		200,

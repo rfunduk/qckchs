@@ -95,7 +95,7 @@ main :: proc() {
 
 	fio.set_log(fio_log)
 
-	origin, has_origin := os.lookup_env("ORIGIN")
+	origin, has_origin := os.lookup_env_alloc("ORIGIN", context.allocator)
 	when !ODIN_DEBUG {
 		if !has_origin || len(origin) == 0 || !strings.has_prefix(origin, "https://") {
 			log.fatal("ORIGIN env var must be set in production (https://example.com)")
@@ -123,7 +123,7 @@ main :: proc() {
 	fio.on_sse_message(handle_game_update)
 	fio.run_every(1000, lifecycle_tick, nil)
 
-	port, found := os.lookup_env("PORT")
+	port, found := os.lookup_env_alloc("PORT", context.allocator)
 	portc := strings.clone_to_cstring(found ? port : "8080")
 	fio.listen(portc)
 	defer delete(port)

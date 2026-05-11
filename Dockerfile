@@ -5,7 +5,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Odin compiler
-ARG ODIN_VERSION=dev-2026-02
+ARG ODIN_VERSION=dev-2026-05
 RUN curl -sL "https://github.com/odin-lang/Odin/releases/download/${ODIN_VERSION}/odin-linux-amd64-${ODIN_VERSION}.tar.gz" \
     | tar -xzf - -C /opt --strip-components=1 && \
     ln -s /opt/odin /usr/local/bin/odin

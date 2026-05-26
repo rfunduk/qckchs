@@ -222,6 +222,34 @@ render_board :: proc(game: ^Game, viewer: chess.Player) -> (string, bool) {
 	return render_partial("_board", data)
 }
 
+render_signals :: proc(game: ^Game, viewer: chess.Player, now: i64) -> (string, bool) {
+	wp, bp := effective_periods(game.clock, game.state, now)
+	color: string
+	switch viewer {
+	case .White: color = "white"
+	case .Black: color = "black"
+	case .None:  color = "spectator"
+	}
+	white_code, black_code: string
+	if wid, wok := db_get_player_id(game.white_key); wok { white_code = player_code(wid) }
+	if bid, bok := db_get_player_id(game.black_key); bok { black_code = player_code(bid) }
+	ply := len(game.moves)
+	data := Game_Page_Data {
+		assets  = g_assets,
+		code    = game.code,
+		state   = state_string(game.state),
+		turn    = turn_string(game.state),
+		result  = result_string(game.result),
+		white   = {name = game.white_name, code = white_code, periods = wp},
+		black   = {name = game.black_name, code = black_code, periods = bp},
+		color   = color,
+		max_ply = ply,
+		paired  = (game.white_key != EMPTY_KEY && game.black_key != EMPTY_KEY) ? 1 : 0,
+		public  = game.public ? 1 : 0,
+	}
+	return render_partial("_signals", data)
+}
+
 load_templates :: proc() {
 	template_strings = load_template_strings()
 

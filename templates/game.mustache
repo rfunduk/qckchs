@@ -7,26 +7,7 @@
   <div data-on-interval__3s="if ($state === 'waiting') @post('/ping/{{code}}')"></div>
 {{/active}}
 
-<div
-  data-signals:turn="'{{turn}}'"
-  data-signals:state="'{{state}}'"
-  data-signals:white="{ name: '{{white.name}}', code: '{{white.code}}', periods: {{white.periods}} }"
-  data-signals:black="{ name: '{{black.name}}', code: '{{black.code}}', periods: {{black.periods}} }"
-  data-signals:result="'{{result}}'"
-  data-signals:paired="{{paired}}"
-  data-signals:public="{{public}}"
-  data-signals:ply="{{max_ply}}"
-  data-signals:max-ply="{{max_ply}}"
-  data-signals:_color="'{{color}}'"
-  data-signals:_status-dismissed="false"
-  data-computed:_top-bar="'{{color}}' === 'white' ? $black : $white"
-  data-computed:_bottom-bar="'{{color}}' === 'white' ? $white : $black"
-  data-on:keydown__window="
-    if (evt.key === 'ArrowLeft') @get(`/replay/{{code}}/${$ply - 1}`)
-    if (evt.key === 'ArrowRight') @get(`/replay/{{code}}/${$ply + 1}`)
-    if (evt.key === 'Escape') $_statusDismissed = true
-  "
-></div>
+{{> _signals}}
 
 <div class="game-area">
 

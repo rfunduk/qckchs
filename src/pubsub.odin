@@ -330,6 +330,13 @@ route_game_stream :: proc(sse: mg.SSE) {
 		json_data := game_json(game, viewer, now)
 		sse_write_json(sse, json_data)
 	} else {
+		if result == .White_Joined || result == .Black_Joined {
+			// we need to be sure that all players have the fully updated
+			// set of signals in order for the game to start
+			if signals_html, sok := render_signals(game, viewer, now); sok {
+				ds_patch_el(sse, "#signals", signals_html)
+			}
+		}
 		board_html, ok2 := render_board(game, viewer)
 		if ok2 { ds_patch_el(sse, "#board", board_html) }
 		ds_patch_signals(sse, game_signals(game, now))

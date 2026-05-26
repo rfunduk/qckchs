@@ -108,7 +108,7 @@ route_new_game :: proc(req: mg.Req, path: string) {
 	if !pk_ok { respond_400(req); return }
 
 	suffix := path[len("/new-game"):]
-	if len(suffix) > 0 { suffix = suffix[1:] } // strip leading /
+	if len(suffix) > 0 { suffix = suffix[1:] } 	// strip leading /
 
 	id: Game_Id
 	if len(suffix) == 0 {

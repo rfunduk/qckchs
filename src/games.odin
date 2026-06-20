@@ -47,6 +47,7 @@ Game_Signals :: struct {
 	paired:  bool,
 	ply:     int,
 	max_ply: int `json:"maxPly"`,
+	target:  int `json:"_target"`,
 	public:  int,
 }
 
@@ -79,6 +80,7 @@ game_signals :: proc(game: ^Game, now: i64) -> string {
 		paired = game.white_key != EMPTY_KEY && game.black_key != EMPTY_KEY,
 		ply = ply,
 		max_ply = ply,
+		target = ply,
 		public = game.public ? 1 : 0,
 	}
 	bytes, _ := json.marshal(sigs)

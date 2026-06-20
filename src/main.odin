@@ -124,7 +124,9 @@ main :: proc() {
 	mg.run_every(1000, lifecycle_tick, nil)
 
 	port, found := os.lookup_env_alloc("PORT", context.allocator)
-	portc := strings.clone_to_cstring(found ? port : "8080")
+	bind_port := found ? port : "8022"
+	portc := strings.clone_to_cstring(bind_port)
+	log.infof("Listening on http://0.0.0.0:%s", bind_port)
 	mg.listen(portc)
 	defer delete(port)
 	defer delete(portc)

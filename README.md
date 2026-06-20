@@ -23,3 +23,12 @@ Open [qckchs.com](https://qckchs.com), pick a name (and then backup key if desir
 - **Server**: Odin, single-threaded over [Mongoose](https://mongoose.ws). Game state lives in memory; SQLite is an async write-through sink.
 - **Frontend**: server-rendered Mustache + [Datastar](https://data-star.dev) over SSE. No SPA, no build step on the client.
 - **Engine ("mimir")**: alpha-beta with TT, killers, LMR, quiescence. Plays via either a handcrafted evaluator or a small NNUE (360 → 128 → 1). Trained offline from self-play data.
+
+## Dev
+
+Requires Odin 2026-05 + normal dev essentials.
+
+```
+bin/setup   # retrieve dependencies
+bin/dev     # run server at localhost:8022
+```
